@@ -22,16 +22,16 @@
   "series": [
     {
       "id": 1,
-      "style": "solid",
+      "style": "dashed",
       "intensity_center": 109.13126373291016,
       "point_count": 1645,
       "coverage_ratio": 0.6438,
-      "csv_path": "digitized/page6.3_series_1_solid.csv"
+      "csv_path": "digitized/page6.3_series_1_dashed.csv"
     },
     {
       "id": 2,
       "style": "solid",
-      "intensity_center": 13.636917114257812,
+      "intensity_center": 13.636919021606445,
       "point_count": 3859,
       "coverage_ratio": 1.0,
       "csv_path": "digitized/page6.3_series_2_solid.csv"

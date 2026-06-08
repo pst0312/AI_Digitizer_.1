@@ -1,0 +1,1 @@
+6/7 - next time add in background masking telling it to ignore white background colors

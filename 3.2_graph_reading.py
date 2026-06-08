@@ -7,6 +7,7 @@ from pathlib import Path
 
 import cv2
 import numpy as np
+import pandas as pd
 from PIL import Image
 from sklearn.cluster import KMeans
 
@@ -157,12 +158,15 @@ def cluster_series(gray_image: np.ndarray, num_series: int):
         mask = labels == cluster_id
         cluster_x = xs[mask]
         cluster_y = ys[mask]
+        point_count = int(cluster_x.size)
+        intensity_center = float(model.cluster_centers_[cluster_id][0])
+
         if cluster_x.size == 0:
             clusters.append(
                 {
                     "id": cluster_id + 1,
                     "style": "solid",
-                    "intensity_center": float(model.cluster_centers_[cluster_id][0]),
+                    "intensity_center": intensity_center,
                     "point_count": 0,
                     "coverage_ratio": 0.0,
                     "pixels": [],
@@ -170,27 +174,38 @@ def cluster_series(gray_image: np.ndarray, num_series: int):
             )
             continue
 
-        sorted_indices = np.argsort(cluster_x)
-        cluster_x = cluster_x[sorted_indices]
-        cluster_y = cluster_y[sorted_indices]
+        df = pd.DataFrame({"x": cluster_x, "y": cluster_y})
+        grouped = df.groupby("x")["y"].median()
 
-        unique_x = np.unique(cluster_x)
-        coverage_ratio = float(len(unique_x)) / float(width) if width > 0 else 0.0
+        timeline = pd.DataFrame(
+            {"x": np.arange(width)}
+        )
+        timeline["y"] = np.nan
+        timeline.loc[grouped.index, "y"] = grouped.values
+        coverage_ratio = float(grouped.index.size) / float(width) if width > 0 else 0.0
+        timeline["y"] = timeline["y"].interpolate(method="linear", limit_direction="both")
+
+        if timeline["y"].isna().any():
+            raise ValueError(
+                f"Cluster {cluster_id + 1} could not be fully interpolated across width={width}"
+            )
 
         points = [
             (
                 float(x) / float(width),
-                1.0 - float(y) / float(height),
+                1.0 - float(y_val) / float(height),
             )
-            for x, y in zip(cluster_x, cluster_y)
+            for x, y_val in zip(timeline["x"].to_numpy(), timeline["y"].to_numpy())
         ]
+
+        style = "solid" if coverage_ratio > 0.85 else "dashed"
 
         clusters.append(
             {
                 "id": cluster_id + 1,
-                "style": "solid",
-                "intensity_center": float(model.cluster_centers_[cluster_id][0]),
-                "point_count": int(cluster_x.size),
+                "style": style,
+                "intensity_center": intensity_center,
+                "point_count": point_count,
                 "coverage_ratio": float(round(coverage_ratio, 4)),
                 "pixels": points,
             }

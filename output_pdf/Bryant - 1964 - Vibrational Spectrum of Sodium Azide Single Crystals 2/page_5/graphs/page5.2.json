@@ -22,19 +22,19 @@
   "series": [
     {
       "id": 1,
-      "style": "solid",
+      "style": "dashed",
       "intensity_center": 43.5189208984375,
       "point_count": 1480,
       "coverage_ratio": 0.8388,
-      "csv_path": "digitized/page5.2_series_1_solid.csv"
+      "csv_path": "digitized/page5.2_series_1_dashed.csv"
     },
     {
       "id": 2,
-      "style": "solid",
+      "style": "dashed",
       "intensity_center": 123.33293151855469,
       "point_count": 1835,
       "coverage_ratio": 0.7662,
-      "csv_path": "digitized/page5.2_series_2_solid.csv"
+      "csv_path": "digitized/page5.2_series_2_dashed.csv"
     },
     {
       "id": 3,
@@ -46,11 +46,11 @@
     },
     {
       "id": 4,
-      "style": "solid",
+      "style": "dashed",
       "intensity_center": 74.08292388916016,
       "point_count": 3001,
       "coverage_ratio": 0.8283,
-      "csv_path": "digitized/page5.2_series_4_solid.csv"
+      "csv_path": "digitized/page5.2_series_4_dashed.csv"
     }
   ]
 }
