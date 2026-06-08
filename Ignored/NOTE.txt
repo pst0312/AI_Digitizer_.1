@@ -1,1 +1,3 @@
 6/7 - next time add in background masking telling it to ignore white background colors
+
+6/8 - Look at graphing vertical line as its own object and then modifying the other csvs if other method doesn't work out. 
