@@ -13,5 +13,44 @@
   "vision_extracted": true,
   "manually_entered": true,
   "needs_manual_review": false,
-  "collection_mode": 1
+  "collection_mode": 1,
+  "digitized": true,
+  "digitization_method": "intensity_cluster_skeleton",
+  "axis_scale": "relative",
+  "vertical_markers_px": [],
+  "vertical_markers_relative_x": [],
+  "series": [
+    {
+      "id": 1,
+      "style": "solid",
+      "intensity_center": 2.2585906982421875,
+      "point_count": 4535,
+      "coverage_ratio": 0.9987,
+      "csv_path": "digitized/page6.1_series_1_solid.csv"
+    },
+    {
+      "id": 2,
+      "style": "solid",
+      "intensity_center": 127.4981460571289,
+      "point_count": 1590,
+      "coverage_ratio": 0.8135,
+      "csv_path": "digitized/page6.1_series_2_solid.csv"
+    },
+    {
+      "id": 3,
+      "style": "solid",
+      "intensity_center": 48.95766830444336,
+      "point_count": 2174,
+      "coverage_ratio": 0.9549,
+      "csv_path": "digitized/page6.1_series_3_solid.csv"
+    },
+    {
+      "id": 4,
+      "style": "solid",
+      "intensity_center": 81.98945617675781,
+      "point_count": 2187,
+      "coverage_ratio": 0.9574,
+      "csv_path": "digitized/page6.1_series_4_solid.csv"
+    }
+  ]
 }

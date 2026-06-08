@@ -13,5 +13,28 @@
   "vision_extracted": true,
   "manually_entered": true,
   "needs_manual_review": false,
-  "collection_mode": 1
+  "collection_mode": 1,
+  "digitized": true,
+  "digitization_method": "intensity_cluster_skeleton",
+  "axis_scale": "relative",
+  "vertical_markers_px": [],
+  "vertical_markers_relative_x": [],
+  "series": [
+    {
+      "id": 1,
+      "style": "solid",
+      "intensity_center": 8.678476333618164,
+      "point_count": 4159,
+      "coverage_ratio": 1.0,
+      "csv_path": "digitized/page5.3_series_1_solid.csv"
+    },
+    {
+      "id": 2,
+      "style": "solid",
+      "intensity_center": 88.01174926757812,
+      "point_count": 2208,
+      "coverage_ratio": 0.9386,
+      "csv_path": "digitized/page5.3_series_2_solid.csv"
+    }
+  ]
 }
