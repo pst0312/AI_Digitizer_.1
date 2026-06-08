@@ -94,40 +94,53 @@ def crop_plot(image: np.ndarray, bounds: dict, image_width: int, image_height: i
     return image[y1:y2, x1:x2], x1, y1, x2, y2
 
 
-def detect_vertical_markers(gray_crop: np.ndarray):
+def detect_vertical_markers(gray_crop: np.ndarray, manual_markers=None):
     height, width = gray_crop.shape[:2]
     if height < 5 or width < 5:
         return [], np.zeros((height, width), dtype=np.uint8), gray_crop.copy()
 
-    _, bin_inv = cv2.threshold(
-        gray_crop, 0, 255, cv2.THRESH_BINARY_INV | cv2.THRESH_OTSU
-    )
-
-    kernel_height = max(3, int(round(height * 0.6)))
-    kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (1, kernel_height))
-    vertical_candidates = cv2.morphologyEx(bin_inv, cv2.MORPH_OPEN, kernel)
-
-    contours, _ = cv2.findContours(
-        vertical_candidates, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE
-    )
-    marker_mask = np.zeros_like(vertical_candidates, dtype=np.uint8)
+    marker_mask = np.zeros((height, width), dtype=np.uint8)
     marker_positions = []
 
-    for contour in contours:
-        x, y, w, h = cv2.boundingRect(contour)
-        if h < int(round(height * 0.6)):
-            continue
-        cv2.drawContours(marker_mask, [contour], -1, 255, thickness=-1)
-        marker_positions.append(int(round(x + w / 2)))
+    # Scenario A: Use explicit manual coordinates from your JSON if provided
+    if manual_markers and len(manual_markers) > 0:
+        marker_positions = sorted(list(set([int(round(x)) for x in manual_markers])))
+        
+        # Draw vertical mask bands around each known shift marker location
+        # A thickness buffer of 3-5 pixels ensures we catch bleeding pixels
+        buffer_px = 3 
+        for x_pos in marker_positions:
+            x1 = max(0, x_pos - buffer_px)
+            x2 = min(width, x_pos + buffer_px + 1)
+            cv2.rectangle(marker_mask, (x1, 0), (x2, height), 255, thickness=-1)
 
-    marker_positions = sorted(set(marker_positions))
+    # Scenario B: Fall back to automatic morphology if JSON has no markers
+    else:
+        _, bin_inv = cv2.threshold(
+            gray_crop, 0, 255, cv2.THRESH_BINARY_INV | cv2.THRESH_OTSU
+        )
+        kernel_height = max(3, int(round(height * 0.6)))
+        kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (1, kernel_height))
+        vertical_candidates = cv2.morphologyEx(bin_inv, cv2.MORPH_OPEN, kernel)
+
+        contours, _ = cv2.findContours(
+            vertical_candidates, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE
+        )
+        for contour in contours:
+            x, y, w, h = cv2.boundingRect(contour)
+            if h < int(round(height * 0.6)):
+                continue
+            cv2.drawContours(marker_mask, [contour], -1, 255, thickness=-1)
+            marker_positions.append(int(round(x + w / 2)))
+        marker_positions = sorted(set(marker_positions))
+
+    # Inpaint the regions to seamlessly wipe them out from the data path tracing
     if np.any(marker_mask):
-        inpainted = cv2.inpaint(gray_crop, marker_mask, 3, cv2.INPAINT_TELEA)
+        inpainted = cv2.inpaint(gray_crop, marker_mask, 5, cv2.INPAINT_TELEA)
     else:
         inpainted = gray_crop.copy()
 
     return marker_positions, marker_mask, inpainted
-
 
 def extract_dark_pixels(gray_image: np.ndarray):
     _, line_mask = cv2.threshold(
@@ -269,7 +282,14 @@ def process_graph_png(png_path: Path, json_path: Path, root_dir: Path, summary: 
         return
 
     try:
-        vertical_markers_px, marker_mask, cleaned = detect_vertical_markers(cropped)
+        # Check if manual shift markers exist in your JSON metadata
+        # Adjust the key name ("shift_markers_x" or "vertical_markers_px") to match your exact JSON structure
+        manual_markers = metadata.get("vertical_markers_px", [])
+        
+        vertical_markers_px, marker_mask, cleaned = detect_vertical_markers(
+            cropped, 
+            manual_markers=manual_markers
+        )
     except Exception:
         summary["failed"] += 1
         return
