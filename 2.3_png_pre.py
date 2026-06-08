@@ -11,14 +11,14 @@ from pathlib import Path
 import cv2
 import numpy as np
 
-BORDER_ERODE_PX = 3
-GAUSSIAN_KERNEL = (3, 3)
-GAUSSIAN_SIGMA = 0.8
-ADAPTIVE_BLOCK_SIZE = 31
-ADAPTIVE_C = 8
-MIN_COMPONENT_AREA = 50
-MAX_SKEW_ANGLE_DEG = 15
-SKEW_METHOD_DISAGREEMENT_THRESHOLD_DEG = 5
+BORDER_ERODE_PX = 3                     # Keep as is
+GAUSSIAN_KERNEL = (5, 5)                # Increased from (3,3)
+GAUSSIAN_SIGMA = 1.2                    # Increased from 0.8
+ADAPTIVE_BLOCK_SIZE = 51                # Increased from 31
+ADAPTIVE_C = 2                          # Decreased from 4
+MIN_COMPONENT_AREA = 30                 # Increased from 15
+MAX_SKEW_ANGLE_DEG = 15                 # Keep as is
+SKEW_METHOD_DISAGREEMENT_THRESHOLD_DEG = 5 # Keep as is
 
 SCRIPT_DIR = Path(__file__).resolve().parent
 DEFAULT_OUTPUT_ROOT = SCRIPT_DIR / "output_pdf"
