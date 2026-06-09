@@ -1,0 +1,21 @@
+{
+  "source_png": "Bryant - 1964 - Vibrational Spectrum of Sodium Azide Single Crystals 2/page_6/graphs/page6.1.png",
+  "preprocessed": true,
+  "skew_angle_detected_deg": 0.0,
+  "skew_corrected": false,
+  "needs_rotation_review": false,
+  "border_eroded_px": 3,
+  "adaptive_block_size": 25,
+  "adaptive_C": 4,
+  "min_component_area": 12,
+  "stages_applied": [
+    "grayscale",
+    "deskew",
+    "border_erode",
+    "gaussian_blur",
+    "adaptive_threshold",
+    "morph_open",
+    "component_filter"
+  ],
+  "warnings": []
+}
