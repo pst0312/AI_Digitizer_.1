@@ -1,0 +1,13 @@
+{
+  "plot_bounds": {
+    "x1": 143.8,
+    "y1": 37.6,
+    "x2": 935.7,
+    "y2": 509.2
+  },
+  "num_series": 4,
+  "vision_extracted": true,
+  "manually_entered": true,
+  "needs_manual_review": false,
+  "collection_mode": 1
+}
