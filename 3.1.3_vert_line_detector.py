@@ -1,26 +1,12 @@
 #!/usr/bin/env python3
 """
-Detect vertical shift lines in graph crops and update JSON metadata safely.
-
-Key improvements over original:
-  - Requires the candidate column to be a LOCAL PEAK in the column profile,
-    not just the global maximum. A sharp absorption edge is flanked by other
-    dark columns; a true vertical line stands alone.
-  - Checks NEIGHBOR CONTRAST: the candidate column must be significantly
-    darker than the mean of its immediate neighbors. Absorption edges fail
-    this because adjacent columns are nearly as dark.
-  - Enforces PIXEL CONTINUITY along the candidate column: dark pixels must
-    form an unbroken (or near-unbroken) run, not a scattered profile that
-    happens to sum high.
-  - Raises MIN_COLUMN_RATIO to reduce easy false positives.
-  - Adds a WIDTH GATE: after finding the peak column, it measures how many
-    adjacent columns also exceed a high threshold. Real shift lines are 1-3px
-    wide; peak edges spread across many columns.
+Detect vertical shift lines (solid or dashed) in graph crops and update JSON metadata safely.
 """
 
 import argparse
 import json
 import os
+import re
 from pathlib import Path
 
 import cv2
@@ -29,32 +15,18 @@ import numpy as np
 
 # ── tuneable constants ────────────────────────────────────────────────────────
 
-# Fraction of column height that must be dark for the peak column to qualify.
-# Raised from 0.40 to reduce easy false positives from shallow peaks.
-MIN_COLUMN_RATIO = 0.55
+# Lowered from 0.55 to 0.25 to accommodate the empty gaps in dashed lines.
+MIN_COLUMN_RATIO = 0.25
 
 # A true vertical marker must be at least this much darker than its neighbours.
-# Expressed as a fraction of the peak column's own value.
-# e.g. 0.35 means neighbours must average ≤ 65 % of the peak column's sum.
 NEIGHBOR_CONTRAST_THRESHOLD = 0.35
-
-# Half-width of the neighbourhood used for the contrast check (columns).
 NEIGHBOR_HALF_WIDTH = 6
 
-# Maximum number of columns (centred on peak) that may exceed
-# MIN_COLUMN_RATIO * height before the candidate is rejected as a "broad feature"
-# (i.e. a peak edge rather than a single vertical line).
+# Maximum number of columns (centred on peak) that may exceed a relative width threshold.
 MAX_LINE_WIDTH_PX = 4
 
-# Minimum fraction of the crop height that must be covered by a CONTINUOUS run
-# of dark pixels in the candidate column.
-# A true vertical line is continuous; an absorption peak edge is not (the line
-# only exists where the curve is near-vertical).
-MIN_CONTINUITY_FRACTION = 0.55
-
-# Minimum gap (in pixels) between a bright run break before it counts as
-# discontinuous.  Small gaps from scan noise are tolerated.
-CONTINUITY_GAP_TOLERANCE = 6
+# Minimum vertical coverage across the entire column height (for dashes + solids)
+MIN_VERTICAL_SPAN_FRACTION = 0.85
 
 
 # ── helpers ───────────────────────────────────────────────────────────────────
@@ -102,62 +74,43 @@ def validate_plot_bounds(data: dict):
 
 # ── core detector ─────────────────────────────────────────────────────────────
 
-def _largest_continuous_run(col_binary: np.ndarray, gap_tolerance: int) -> int:
+def _validate_vertical_distribution(col_binary: np.ndarray) -> bool:
     """
-    Return the length of the largest continuous run of non-zero pixels in a
-    1-D binary column, allowing internal gaps of up to `gap_tolerance` pixels.
+    Checks if the column acts like a global vertical line (solid or dashed).
+    Ensures pixels span from top to bottom and occupy multiple vertical sections.
     """
-    pixels = col_binary.astype(bool)
-    if not pixels.any():
-        return 0
+    height = len(col_binary)
+    nz_indices = np.where(col_binary > 0)[0]
+    if len(nz_indices) == 0:
+        return False
 
-    best = 0
-    run_start = None
-    gap_count = 0
+    # 1. Vertical Span Check: First to last pixel must cover most of the height
+    span = (nz_indices[-1] - nz_indices[0]) / height
+    if span < MIN_VERTICAL_SPAN_FRACTION:
+        return False
 
-    for i, v in enumerate(pixels):
-        if v:
-            if run_start is None:
-                run_start = i
-            gap_count = 0
-            best = max(best, i - run_start + 1)
-        else:
-            if run_start is not None:
-                gap_count += 1
-                if gap_count > gap_tolerance:
-                    run_start = None
-                    gap_count = 0
+    # 2. Zone Distribution Check: Divide column into 4 vertical zones.
+    # A true shift line intersects almost all zones, whereas localized curves do not.
+    zones = np.array_split(col_binary, 4)
+    populated_zones = sum(1 for zone in zones if np.any(zone > 0))
+    if populated_zones < 3:
+        return False
 
-    return best
+    return True
 
 
 def detect_vertical_shift_line(gray_crop: np.ndarray):
     """
     Return the x-coordinate (relative to crop) of a vertical shift line,
     or None if no convincing line is found.
-
-    Strategy
-    --------
-    1. Binarise with Otsu (ink = 255).
-    2. Build a column-sum profile.
-    3. Find the global peak column; reject if below MIN_COLUMN_RATIO.
-    4. Reject if the peak is NOT a local maximum (i.e. a neighbouring column
-       is as dark or darker — typical of a broad absorption edge).
-    5. Reject if the peak column's sum is not sufficiently larger than the
-       mean of its ±NEIGHBOR_HALF_WIDTH neighbours (contrast check).
-    6. Measure the width of the "dark band" around the peak; reject if wider
-       than MAX_LINE_WIDTH_PX (broad feature = peak edge, not a line).
-    7. Check pixel continuity along the candidate column; reject if the
-       longest unbroken dark run is shorter than MIN_CONTINUITY_FRACTION of
-       the crop height.
     """
     if gray_crop.size == 0:
         return None
 
     height, width = gray_crop.shape
 
-    # ── 1. binarise ──────────────────────────────────────────────────────────
-    blur = cv2.GaussianBlur(gray_crop, (5, 5), 0)
+    # ── 1. binarise (using a smaller blur to keep thin dashed lines distinct) ──
+    blur = cv2.GaussianBlur(gray_crop, (3, 3), 0)
     _, binary = cv2.threshold(blur, 0, 255, cv2.THRESH_BINARY_INV | cv2.THRESH_OTSU)
 
     # ── 2. column profile ────────────────────────────────────────────────────
@@ -174,8 +127,6 @@ def detect_vertical_shift_line(gray_crop: np.ndarray):
         return None
 
     # ── 4. local-maximum check ───────────────────────────────────────────────
-    # The peak column must be strictly greater than BOTH immediate neighbours.
-    # An absorption edge has many adjacent columns with nearly identical sums.
     left_val  = float(profile[peak_x - 1]) if peak_x > 0          else 0.0
     right_val = float(profile[peak_x + 1]) if peak_x < width - 1  else 0.0
 
@@ -188,15 +139,15 @@ def detect_vertical_shift_line(gray_crop: np.ndarray):
     neighbour_indices = [i for i in range(lo, hi + 1) if i != peak_x]
     if neighbour_indices:
         neighbour_mean = float(np.mean(profile[neighbour_indices]))
-        # neighbours must average less than (1 - threshold) * peak
         if neighbour_mean > peak_value * (1.0 - NEIGHBOR_CONTRAST_THRESHOLD):
             return None
 
-    # ── 6. width gate ────────────────────────────────────────────────────────
-    # Count how many consecutive columns around the peak also exceed the
-    # minimum height ratio (i.e. are "nearly as dark").
-    threshold_sum = max_possible * MIN_COLUMN_RATIO
-    band_width = 1  # the peak column itself
+    # ── 6. relative width gate ───────────────────────────────────────────────
+    # We measure width relative to the peak value itself instead of a global floor.
+    # This prevents noise from expanding the width bounds of low-density dashed lines.
+    threshold_sum = peak_value * 0.50
+    band_width = 1
+    
     # expand left
     for dx in range(1, width):
         x = peak_x - dx
@@ -213,10 +164,9 @@ def detect_vertical_shift_line(gray_crop: np.ndarray):
     if band_width > MAX_LINE_WIDTH_PX:
         return None
 
-    # ── 7. continuity check ──────────────────────────────────────────────────
+    # ── 7. distribution and span check ───────────────────────────────────────
     col_pixels = binary[:, peak_x]
-    longest_run = _largest_continuous_run(col_pixels, CONTINUITY_GAP_TOLERANCE)
-    if longest_run < height * MIN_CONTINUITY_FRACTION:
+    if not _validate_vertical_distribution(col_pixels):
         return None
 
     return peak_x

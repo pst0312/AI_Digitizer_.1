@@ -12,5 +12,11 @@
   "collection_mode": 1,
   "image_width_px": 986,
   "image_height_px": 614,
-  "image_measured": true
+  "image_measured": true,
+  "vertical_markers_px": [
+    582
+  ],
+  "vertical_markers_relative_x": [
+    0.5624
+  ]
 }
