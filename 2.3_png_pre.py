@@ -33,6 +33,26 @@ STAGE_NAMES = [
     "component_filter",
 ]
 
+def isolate_graph_structural_lines(gray_img: np.ndarray) -> np.ndarray:
+    """Removes text and diagonal data lines, leaving only grid lines and axes."""
+    # Invert to binary (white lines on black background)
+    _, binary = cv2.threshold(gray_img, 0, 255, cv2.THRESH_BINARY_INV | cv2.THRESH_OTSU)
+    
+    # Create horizontal and vertical structural elements
+    scale = 20  # Higher means longer lines required
+    k_width = max(2, gray_img.shape[1] // scale)
+    k_height = max(2, gray_img.shape[0] // scale)
+    
+    horiz_kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (k_width, 1))
+    vert_kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (1, k_height))
+    
+    # Extract horizontal and vertical structures
+    horiz = cv2.morphologyEx(binary, cv2.MORPH_OPEN, horiz_kernel)
+    vert = cv2.morphologyEx(binary, cv2.MORPH_OPEN, vert_kernel)
+    
+    # Combine them and invert back to black-on-white
+    combined = cv2.add(horiz, vert)
+    return cv2.bitwise_not(combined)
 
 def parse_args():
     parser = argparse.ArgumentParser(
@@ -136,6 +156,11 @@ def detect_skew_angle(gray_img: np.ndarray) -> tuple[float, bool, list[str]]:
     def clamp_angle(angle: float) -> float:
         return max(-MAX_SKEW_ANGLE_DEG, min(MAX_SKEW_ANGLE_DEG, angle))
 
+    # --- 1. Isolate the axes to eliminate noisy data lines ---
+    clean_axes_img = isolate_graph_structural_lines(gray_img)
+    # Use a blurred version for smoother profiling
+    gray_small = cv2.GaussianBlur(clean_axes_img, (3, 3), 0)
+
     def hough_line_angle(image: np.ndarray) -> float | None:
         edges = cv2.Canny(image, 50, 150, apertureSize=3)
         lines = cv2.HoughLinesP(
@@ -198,14 +223,20 @@ def detect_skew_angle(gray_img: np.ndarray) -> tuple[float, bool, list[str]]:
             angle += 90
         return clamp_angle(-angle)
 
-    gray_small = cv2.GaussianBlur(gray_img, (3, 3), 0)
-    for method in (hough_line_angle, projection_profile_angle, bounding_rect_angle):
-        try:
-            result = method(gray_small)
-        except Exception:
-            result = None
-        if result is not None:
-            angles.append(clamp_angle(result))
+    try:
+        hough_res = hough_line_angle(gray_small)
+        if hough_res is not None: angles.append(clamp_angle(hough_res))
+    except Exception: hough_res = None
+
+    try:
+        proj_res = projection_profile_angle(gray_small)
+        if proj_res is not None: angles.append(clamp_angle(proj_res))
+    except Exception: proj_res = None
+
+    try:
+        bound_res = bounding_rect_angle(gray_small)
+        if bound_res is not None: angles.append(clamp_angle(bound_res))
+    except Exception: bound_res = None
 
     if not angles:
         warnings.append("skew estimation unavailable")
@@ -213,9 +244,17 @@ def detect_skew_angle(gray_img: np.ndarray) -> tuple[float, bool, list[str]]:
 
     median_angle = float(np.median(np.array(angles, dtype=np.float32)))
     disagreement = max(abs(angle - median_angle) for angle in angles)
+    
+    # --- 2. Smart Automatic Resolution ---
     if disagreement > SKEW_METHOD_DISAGREEMENT_THRESHOLD_DEG:
-        warnings.append("skew estimation disagreement exceeds threshold")
-        return 0.0, True, warnings
+        # If projection profile found a strong match, trust it over the others 
+        # because Hough gets distracted by text clusters.
+        if proj_res is not None:
+            warnings.append(f"Disagreement resolved automatically: trusting Projection Profile ({proj_res:.2f}°)")
+            return clamp_angle(proj_res), False, warnings
+        else:
+            warnings.append("skew estimation disagreement exceeds threshold; fallback failed")
+            return 0.0, True, warnings
 
     return clamp_angle(median_angle), False, warnings
 

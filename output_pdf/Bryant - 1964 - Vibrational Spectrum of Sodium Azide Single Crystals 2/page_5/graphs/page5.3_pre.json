@@ -3,7 +3,7 @@
   "preprocessed": true,
   "skew_angle_detected_deg": 0.0,
   "skew_corrected": false,
-  "needs_rotation_review": true,
+  "needs_rotation_review": false,
   "border_eroded_px": 3,
   "adaptive_block_size": 25,
   "adaptive_C": 4,
@@ -17,7 +17,5 @@
     "morph_open",
     "component_filter"
   ],
-  "warnings": [
-    "skew estimation disagreement exceeds threshold"
-  ]
+  "warnings": []
 }
