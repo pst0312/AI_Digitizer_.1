@@ -7,12 +7,19 @@ from pathlib import Path
 
 import cv2
 import numpy as np
-import pandas as pd
 from PIL import Image
-from sklearn.cluster import KMeans
 
 
 DEFAULT_ROOT = Path(__file__).parent / "output_pdf"
+
+# Run/tracking parameters for geometric series separation
+RUN_GAP_PX = 2                     # vertical gap that splits one column run into two
+MAX_RUN_HEIGHT_FRACTION = 0.85     # runs taller than this fraction of plot height are axis junk
+STRUCTURAL_LINE_FRACTION = 0.7     # lines spanning this fraction of width/height are frame, not data
+EDGE_BAND_FRACTION = 0.03          # runs entirely inside this top/bottom edge band are frame remnants
+BASE_MATCH_TOL_FRACTION = 0.025    # matching tolerance right after a confirmed point
+GAP_TOL_GROWTH_FRACTION = 0.015    # tolerance growth per skipped column (dashed gaps)
+MAX_MATCH_TOL_FRACTION = 0.15      # tolerance ceiling
 
 
 def parse_args():
@@ -150,36 +157,170 @@ def extract_dark_pixels(gray_image: np.ndarray):
     return xs, ys, line_mask
 
 
+def remove_structural_lines(line_mask: np.ndarray) -> np.ndarray:
+    """Subtract long horizontal/vertical lines (plot frame, gridlines) from the mask."""
+    height, width = line_mask.shape[:2]
+    h_len = max(3, int(round(width * STRUCTURAL_LINE_FRACTION)))
+    v_len = max(3, int(round(height * STRUCTURAL_LINE_FRACTION)))
+    horiz_kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (h_len, 1))
+    vert_kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (1, v_len))
+    horiz = cv2.morphologyEx(line_mask, cv2.MORPH_OPEN, horiz_kernel)
+    vert = cv2.morphologyEx(line_mask, cv2.MORPH_OPEN, vert_kernel)
+    cleaned = cv2.subtract(line_mask, cv2.add(horiz, vert))
+    return cleaned if np.any(cleaned) else line_mask
+
+
+def extract_column_runs(line_mask: np.ndarray):
+    """For each column, collapse contiguous dark-pixel runs to (center, top, bottom)."""
+    height, width = line_mask.shape[:2]
+    max_run_height = max(3, int(round(height * MAX_RUN_HEIGHT_FRACTION)))
+    edge_band = max(2, int(round(height * EDGE_BAND_FRACTION)))
+    runs_per_column = []
+    for x in range(width):
+        ys = np.flatnonzero(line_mask[:, x])
+        if ys.size == 0:
+            runs_per_column.append([])
+            continue
+        split_points = np.flatnonzero(np.diff(ys) > RUN_GAP_PX)
+        segments = np.split(ys, split_points + 1)
+        runs = [
+            (float(seg.mean()), float(seg[0]), float(seg[-1]))
+            for seg in segments
+            if seg.size <= max_run_height
+            and seg[-1] >= edge_band
+            and seg[0] <= height - 1 - edge_band
+        ]
+        runs_per_column.append(runs)
+    return runs_per_column
+
+
+def find_seed_column(runs_per_column, num_series: int):
+    """Pick the middle of the longest stretch of columns with exactly num_series runs."""
+    best_start, best_length = -1, 0
+    start = -1
+    for x, runs in enumerate(runs_per_column + [[]]):
+        if len(runs) == num_series:
+            if start < 0:
+                start = x
+        elif start >= 0:
+            if x - start > best_length:
+                best_start, best_length = start, x - start
+            start = -1
+    if best_length == 0:
+        return None
+    return best_start + best_length // 2
+
+
+def match_runs_to_series(runs, last_intervals, last_x, x, height, min_share_gap):
+    """Assign column runs to series by proximity to each series' last matched run.
+
+    Distance is measured between [top, bottom] intervals, so a series that just
+    traversed a tall near-vertical stroke (sharp peak/dip) can continue from
+    either end of it.
+    """
+    num_series = len(last_intervals)
+    base_tol = height * BASE_MATCH_TOL_FRACTION
+    growth = height * GAP_TOL_GROWTH_FRACTION
+    tol_cap = height * MAX_MATCH_TOL_FRACTION
+
+    gaps = [abs(x - last_x[s]) for s in range(num_series)]
+    tolerances = [
+        min(tol_cap, base_tol + growth * max(0, gaps[s] - 1))
+        for s in range(num_series)
+    ]
+
+    def interval_distance(series_idx, run_idx):
+        _, run_top, run_bottom = runs[run_idx]
+        last_top, last_bottom = last_intervals[series_idx]
+        if run_top > last_bottom:
+            return run_top - last_bottom
+        if last_top > run_bottom:
+            return last_top - run_bottom
+        return 0.0
+
+    candidates = sorted(
+        (interval_distance(s, r), s, r)
+        for s in range(num_series)
+        for r in range(len(runs))
+        if interval_distance(s, r) <= tolerances[s]
+    )
+
+    # First pass: unique greedy matching so re-splitting curves separate again
+    assignment = {}
+    used_runs = set()
+    for dist, s, r in candidates:
+        if s in assignment or r in used_runs:
+            continue
+        assignment[s] = r
+        used_runs.add(r)
+
+    # Second pass: let unmatched series share an already claimed run, either at
+    # tight distance (curves gradually merging) or after a long gap (series lost
+    # its curve and is recovering). Short dashed-gap columns stay unassigned so a
+    # dotted series does not zigzag onto a close neighboring curve.
+    for dist, s, r in candidates:
+        if s in assignment:
+            continue
+        if dist <= base_tol or gaps[s] >= min_share_gap:
+            assignment[s] = r
+
+    return assignment
+
+
 def cluster_series(gray_image: np.ndarray, num_series: int):
     xs, ys, line_mask = extract_dark_pixels(gray_image)
     if xs.size == 0:
         raise ValueError("No dark pixels found inside plot crop")
 
-    intensities = gray_image[ys, xs].astype(np.float32).reshape(-1, 1)
-    if len(intensities) < num_series:
+    height, width = gray_image.shape[:2]
+    line_mask = remove_structural_lines(line_mask)
+    runs_per_column = extract_column_runs(line_mask)
+
+    seed_x = find_seed_column(runs_per_column, num_series)
+    if seed_x is None:
         raise ValueError(
-            f"Insufficient dark pixels ({len(intensities)}) for {num_series} series"
+            f"No column with exactly {num_series} separable runs; cannot seed tracking"
         )
 
-    model = KMeans(n_clusters=num_series, random_state=0, n_init=10)
-    labels = model.fit_predict(intensities)
+    series_y = np.full((num_series, width), np.nan, dtype=np.float64)
+
+    # Seed assignment: series ordered top-to-bottom at the seed column
+    seed_runs = sorted(runs_per_column[seed_x], key=lambda run: run[0])
+    for s in range(num_series):
+        series_y[s, seed_x] = seed_runs[s][0]
+
+    min_share_gap = max(10, int(round(width * 0.02)))
+
+    # Track outward from the seed in both directions
+    for direction in (1, -1):
+        last_intervals = [(run[1], run[2]) for run in seed_runs]
+        last_x = [seed_x] * num_series
+        x = seed_x + direction
+        while 0 <= x < width:
+            runs = runs_per_column[x]
+            if runs:
+                assignment = match_runs_to_series(
+                    runs, last_intervals, last_x, x, height, min_share_gap
+                )
+                for s, r in assignment.items():
+                    series_y[s, x] = runs[r][0]
+                    last_intervals[s] = (runs[r][1], runs[r][2])
+                    last_x[s] = x
+            x += direction
 
     clusters = []
-    height, width = gray_image.shape[:2]
-
     for cluster_id in range(num_series):
-        mask = labels == cluster_id
-        cluster_x = xs[mask]
-        cluster_y = ys[mask]
-        point_count = int(cluster_x.size)
-        intensity_center = float(model.cluster_centers_[cluster_id][0])
+        row = series_y[cluster_id]
+        assigned = np.flatnonzero(~np.isnan(row))
+        point_count = int(assigned.size)
+        coverage_ratio = float(point_count) / float(width) if width > 0 else 0.0
 
-        if cluster_x.size == 0:
+        if point_count == 0:
             clusters.append(
                 {
                     "id": cluster_id + 1,
                     "style": "solid",
-                    "intensity_center": intensity_center,
+                    "intensity_center": 0.0,
                     "point_count": 0,
                     "coverage_ratio": 0.0,
                     "pixels": [],
@@ -187,28 +328,16 @@ def cluster_series(gray_image: np.ndarray, num_series: int):
             )
             continue
 
-        df = pd.DataFrame({"x": cluster_x, "y": cluster_y})
-        grouped = df.groupby("x")["y"].median()
+        sample_y = np.clip(np.round(row[assigned]).astype(int), 0, height - 1)
+        intensity_center = float(gray_image[sample_y, assigned].mean())
 
-        timeline = pd.DataFrame(
-            {"x": np.arange(width)}
-        )
-        timeline["y"] = np.nan
-        timeline.loc[grouped.index, "y"] = grouped.values
-        coverage_ratio = float(grouped.index.size) / float(width) if width > 0 else 0.0
-        timeline["y"] = timeline["y"].interpolate(method="linear", limit_direction="both")
-
-        if timeline["y"].isna().any():
-            raise ValueError(
-                f"Cluster {cluster_id + 1} could not be fully interpolated across width={width}"
-            )
-
+        filled = np.interp(np.arange(width), assigned, row[assigned])
         points = [
             (
                 float(x) / float(width),
                 1.0 - float(y_val) / float(height),
             )
-            for x, y_val in zip(timeline["x"].to_numpy(), timeline["y"].to_numpy())
+            for x, y_val in enumerate(filled)
         ]
 
         style = "solid" if coverage_ratio > 0.85 else "dashed"
@@ -217,7 +346,7 @@ def cluster_series(gray_image: np.ndarray, num_series: int):
             {
                 "id": cluster_id + 1,
                 "style": style,
-                "intensity_center": intensity_center,
+                "intensity_center": float(round(intensity_center, 2)),
                 "point_count": point_count,
                 "coverage_ratio": float(round(coverage_ratio, 4)),
                 "pixels": points,
