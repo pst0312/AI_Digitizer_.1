@@ -11,6 +11,7 @@ from pathlib import Path
 DEFAULT_ROOT = Path(__file__).parent / "output_pdf"
 
 SERIES_CSV_PATTERN = re.compile(r"^(.+)_series_\d+_(?:solid|dashed)\.csv$")
+VERTICAL_SHIFT_PATTERN = re.compile(r"^(.+)_vertical_shift\.csv$")
 
 
 def parse_args():
@@ -95,23 +96,76 @@ def rescale_csv(csv_path: Path, json_path: Path, output_path: Path):
     return True
 
 
+def rescale_vertical_shift_csv(csv_path: Path, json_path: Path, output_path: Path):
+    """Read a vert_grapher shift CSV (x_relative,y_relative + metadata columns) and write a
+    copy with true-scale 'x'/'y' columns appended. Returns True on success."""
+    metadata = safe_load_json(json_path)
+    if metadata is None:
+        print(f"  Skipping {csv_path.name}: missing or unreadable JSON ({json_path.name})")
+        return False
+
+    bounds = get_axis_bounds(metadata)
+    if bounds is None:
+        print(f"  Skipping {csv_path.name}: {json_path.name} is missing axis_x_min/axis_x_max/axis_y_min/axis_y_max")
+        return False
+
+    x_min, x_max, y_min, y_max = bounds
+
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    with csv_path.open("r", encoding="utf-8", newline="") as src, \
+            output_path.open("w", encoding="utf-8", newline="") as dst:
+        reader = csv.DictReader(src)
+        if "x_relative" not in (reader.fieldnames or []) or "y_relative" not in (reader.fieldnames or []):
+            print(f"  Skipping {csv_path.name}: missing x_relative/y_relative columns")
+            return False
+
+        fieldnames = list(reader.fieldnames)
+        for col in ("x", "y"):
+            if col not in fieldnames:
+                fieldnames.append(col)
+
+        writer = csv.DictWriter(dst, fieldnames=fieldnames)
+        writer.writeheader()
+
+        for row in reader:
+            x_rel, y_rel = float(row["x_relative"]), float(row["y_relative"])
+            row["x"] = f"{x_min + x_rel * (x_max - x_min):.6f}"
+            row["y"] = f"{y_min + y_rel * (y_max - y_min):.6f}"
+            writer.writerow(row)
+
+    return True
+
+
+def identify_csv(csv_path: Path):
+    """Return (graph_stem, rescaler_func) for a recognized digitized CSV, or (None, None)."""
+    match = SERIES_CSV_PATTERN.match(csv_path.name)
+    if match:
+        return match.group(1), rescale_csv
+
+    match = VERTICAL_SHIFT_PATTERN.match(csv_path.name)
+    if match:
+        return match.group(1), rescale_vertical_shift_csv
+
+    return None, None
+
+
 def process_digitized_folder(digitized_path: Path, summary: dict):
     graphs_path = digitized_path.parent / "graphs"
     output_path = digitized_path.parent / "digitized_scaled"
 
     for csv_path in sorted(digitized_path.glob("*.csv")):
         summary["total_csvs"] += 1
-        match = SERIES_CSV_PATTERN.match(csv_path.name)
-        if not match:
-            print(f"  Skipping {csv_path.name}: filename does not match '<stem>_series_<id>_<style>.csv'")
+
+        graph_stem, rescaler = identify_csv(csv_path)
+        if graph_stem is None:
+            print(f"  Skipping {csv_path.name}: filename does not match a recognized pattern")
             summary["skipped"] += 1
             continue
 
-        graph_stem = match.group(1)
         json_path = graphs_path / f"{graph_stem}.json"
         out_csv = output_path / csv_path.name
 
-        if rescale_csv(csv_path, json_path, out_csv):
+        if rescaler(csv_path, json_path, out_csv):
             summary["scaled"] += 1
         else:
             summary["skipped"] += 1
@@ -137,17 +191,20 @@ def main():
         if not csv_path.is_file() or csv_path.suffix.lower() != ".csv":
             raise SystemExit(f"Single file must be an existing CSV: {args.single}")
 
-        match = SERIES_CSV_PATTERN.match(csv_path.name)
-        if not match:
-            raise SystemExit(f"Filename does not match '<stem>_series_<id>_<style>.csv': {csv_path.name}")
+        graph_stem, rescaler = identify_csv(csv_path)
+        if graph_stem is None:
+            raise SystemExit(
+                f"Filename does not match '<stem>_series_<id>_<style>.csv' or "
+                f"'<stem>_vertical_shift.csv': {csv_path.name}"
+            )
 
         digitized_path = csv_path.parent
         graphs_path = digitized_path.parent / "graphs"
-        json_path = graphs_path / f"{match.group(1)}.json"
+        json_path = graphs_path / f"{graph_stem}.json"
         out_csv = digitized_path.parent / "digitized_scaled" / csv_path.name
 
         summary["total_csvs"] = 1
-        if rescale_csv(csv_path, json_path, out_csv):
+        if rescaler(csv_path, json_path, out_csv):
             summary["scaled"] += 1
         else:
             summary["skipped"] += 1
