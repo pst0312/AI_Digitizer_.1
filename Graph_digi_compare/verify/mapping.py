@@ -67,12 +67,27 @@ def scaled_to_relative(x: float, y: float, cal: Calibration) -> tuple[float, flo
 # --- vectorized DataFrame transforms ---------------------------------------
 def _detect_kind(df: pd.DataFrame) -> str:
     """Return ``"relative"`` or ``"scaled"`` based on the DataFrame columns."""
-    if {"x_relative", "y_relative"} <= set(df.columns):
+    cols = set(df.columns)
+    if {"x_relative", "y_relative"} <= cols:
         return "relative"
-    if {"x", "y"} <= set(df.columns):
+    if {"x", "y"} <= cols:
+        return "scaled"
+    if len(df.columns) == 2 and not {"x_relative", "y_relative"} <= cols:
         return "scaled"
     raise ValueError(
-        f"DataFrame has neither (x_relative, y_relative) nor (x, y); got {list(df.columns)}"
+        f"DataFrame has neither (x_relative, y_relative) nor scaled data columns; got {list(df.columns)}"
+    )
+
+
+def _scaled_columns(df: pd.DataFrame) -> tuple[str, str]:
+    """Return the two scaled-data column names for a scaled frame."""
+    cols = set(df.columns)
+    if {"x", "y"} <= cols:
+        return "x", "y"
+    if len(df.columns) == 2:
+        return df.columns[0], df.columns[1]
+    raise ValueError(
+        f"Cannot infer scaled x/y columns from DataFrame columns: {list(df.columns)}"
     )
 
 
@@ -87,8 +102,9 @@ def map_relative_df(df: pd.DataFrame, cal: Calibration) -> pd.DataFrame:
 def map_scaled_df(df: pd.DataFrame, cal: Calibration) -> pd.DataFrame:
     """Add ``pixel_x``/``pixel_y`` columns for an ``x,y`` (true-units) frame."""
     out = df.copy()
-    x_rel = (out["x"] - cal.x_min) / (cal.x_max - cal.x_min)
-    y_rel = (out["y"] - cal.y_min) / (cal.y_max - cal.y_min)
+    x_col, y_col = _scaled_columns(out)
+    x_rel = (out[x_col] - cal.x_min) / (cal.x_max - cal.x_min)
+    y_rel = (out[y_col] - cal.y_min) / (cal.y_max - cal.y_min)
     out["pixel_x"] = cal.x1 + x_rel * (cal.x2 - cal.x1)
     out["pixel_y"] = cal.y2 - y_rel * (cal.y2 - cal.y1)
     return out

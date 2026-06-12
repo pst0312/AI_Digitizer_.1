@@ -102,6 +102,12 @@ def rescale_csv(csv_path: Path, json_path: Path, output_path: Path):
         return False
 
     x_min, x_max, y_min, y_max = bounds
+    x_label = metadata.get("axis_x_label", "x") or "x"
+    y_label = metadata.get("axis_y_label", "y") or "y"
+    x_units = (metadata.get("axis_x_units") or "").strip()
+    y_units = (metadata.get("axis_y_units") or "").strip()
+    x_header = f"{x_label} ({x_units})" if x_units else x_label
+    y_header = f"{y_label} ({y_units})" if y_units else y_label
 
     output_path.parent.mkdir(parents=True, exist_ok=True)
     with csv_path.open("r", encoding="utf-8", newline="") as src, \
@@ -110,7 +116,7 @@ def rescale_csv(csv_path: Path, json_path: Path, output_path: Path):
         writer = csv.writer(dst)
 
         next(reader, None)  # skip original header (x_relative,y_relative)
-        writer.writerow(["x", "y"])
+        writer.writerow([x_header, y_header])
 
         for row in reader:
             if len(row) < 2:
