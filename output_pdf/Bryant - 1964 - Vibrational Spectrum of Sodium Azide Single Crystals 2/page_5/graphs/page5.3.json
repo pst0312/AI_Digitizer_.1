@@ -1,0 +1,52 @@
+{
+  "source_png": "Bryant - 1964 - Vibrational Spectrum of Sodium Azide Single Crystals 2/page_5/graphs/page5.3.png",
+  "image_width_px": 986,
+  "image_height_px": 614,
+  "image_measured": true,
+  "plot_bounds": {
+    "x1": 133.7,
+    "y1": 40.3,
+    "x2": 928.8,
+    "y2": 502.5
+  },
+  "num_series": 2,
+  "vision_extracted": true,
+  "manually_entered": true,
+  "needs_manual_review": false,
+  "collection_mode": 2,
+  "axis_x_label": "Frequency",
+  "axis_x_units": "cm^-1",
+  "axis_x_min": 1750.0,
+  "axis_x_max": 1050.0,
+  "axis_y_label": "Energy Transmitted",
+  "axis_y_units": "",
+  "axis_y_min": 0.0,
+  "axis_y_max": 1.0,
+  "vertical_markers_px": [
+    582
+  ],
+  "vertical_markers_relative_x": [
+    0.5635
+  ],
+  "digitized": true,
+  "digitization_method": "intensity_cluster_skeleton",
+  "axis_scale": "relative",
+  "series": [
+    {
+      "id": 1,
+      "style": "dashed",
+      "intensity_center": 8.67,
+      "point_count": 735,
+      "coverage_ratio": 0.9245,
+      "csv_path": "digitized/page5.3_series_1_dashed.csv"
+    },
+    {
+      "id": 2,
+      "style": "solid",
+      "intensity_center": 0.0,
+      "point_count": 787,
+      "coverage_ratio": 0.9899,
+      "csv_path": "digitized/page5.3_series_2_solid.csv"
+    }
+  ]
+}
