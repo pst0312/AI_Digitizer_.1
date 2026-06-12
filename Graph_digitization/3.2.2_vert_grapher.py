@@ -71,7 +71,19 @@ def process_graph_json(json_path: Path, summary: dict):
     markers_px = metadata.get("vertical_markers_px") or []
     series_list = metadata.get("series") or []
 
+    page_dir = json_path.parent.parent
+    shift_csv = page_dir / "digitized" / f"{json_path.stem}_vertical_shift.csv"
+
     if not markers_relative:
+        # Remove any shift CSV left from a previous run so stale phantom markers
+        # don't resurface in overlays now that this graph has no detected line.
+        for stale in (
+            shift_csv,
+            page_dir / "digitized_scaled" / shift_csv.name,
+        ):
+            if stale.exists():
+                stale.unlink()
+                print(f"  Removed stale {stale}")
         summary["no_marker"] += 1
         return
 
@@ -80,7 +92,6 @@ def process_graph_json(json_path: Path, summary: dict):
         summary["skipped"] += 1
         return
 
-    page_dir = json_path.parent.parent
     rows = []
     for idx, x_rel in enumerate(markers_relative):
         marker_px = markers_px[idx] if idx < len(markers_px) else ""
@@ -113,7 +124,7 @@ def process_graph_json(json_path: Path, summary: dict):
         summary["skipped"] += 1
         return
 
-    out_path = page_dir / "digitized" / f"{json_path.stem}_vertical_shift.csv"
+    out_path = shift_csv
     out_path.parent.mkdir(parents=True, exist_ok=True)
     with out_path.open("w", encoding="utf-8", newline="") as f:
         writer = csv.DictWriter(

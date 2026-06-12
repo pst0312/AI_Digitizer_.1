@@ -26,7 +26,7 @@
     582
   ],
   "vertical_markers_relative_x": [
-    0.7284
+    0.5632
   ],
   "digitized": true,
   "digitization_method": "intensity_cluster_skeleton",
@@ -35,17 +35,17 @@
     {
       "id": 1,
       "style": "solid",
-      "intensity_center": 0.85,
-      "point_count": 743,
-      "coverage_ratio": 0.9299,
+      "intensity_center": 0.69,
+      "point_count": 737,
+      "coverage_ratio": 0.9224,
       "csv_path": "digitized/page5.3_series_1_solid.csv"
     },
     {
       "id": 2,
       "style": "solid",
-      "intensity_center": 0.44,
-      "point_count": 797,
-      "coverage_ratio": 0.9975,
+      "intensity_center": 0.0,
+      "point_count": 791,
+      "coverage_ratio": 0.99,
       "csv_path": "digitized/page5.3_series_2_solid.csv"
     }
   ]

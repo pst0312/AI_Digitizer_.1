@@ -20,6 +20,9 @@ EDGE_BAND_FRACTION = 0.03          # runs entirely inside this top/bottom edge b
 BASE_MATCH_TOL_FRACTION = 0.025    # matching tolerance right after a confirmed point
 GAP_TOL_GROWTH_FRACTION = 0.015    # tolerance growth per skipped column (dashed gaps)
 MAX_MATCH_TOL_FRACTION = 0.15      # tolerance ceiling
+CONVERGE_GAP_COLS = 3              # consecutive misses before a series may share a nearby run
+CONVERGE_SHARE_TOL_FACTOR = 2.0    # share distance ceiling (xbase_tol) for convergence
+ENDPOINT_SNAP_FRACTION = 0.05      # snap a series' end to the shared endpoint within this
 
 
 def parse_args():
@@ -109,7 +112,8 @@ def detect_vertical_markers(gray_crop: np.ndarray, manual_markers=None):
     marker_mask = np.zeros((height, width), dtype=np.uint8)
     marker_positions = []
 
-    # Scenario A: Use explicit manual coordinates from your JSON if provided
+    # Scenario A: Use explicit crop-relative marker columns if provided.
+    # (Callers convert absolute JSON markers to crop columns before passing.)
     if manual_markers and len(manual_markers) > 0:
         marker_positions = sorted(list(set([int(round(x)) for x in manual_markers])))
         
@@ -183,12 +187,14 @@ def extract_column_runs(line_mask: np.ndarray):
             continue
         split_points = np.flatnonzero(np.diff(ys) > RUN_GAP_PX)
         segments = np.split(ys, split_points + 1)
+        # Drop runs whose CENTER sits inside the top/bottom edge band: those are
+        # frame-line remnants, and letting a series anchor to them creates a flat
+        # ghost stroke along the plot border.
         runs = [
             (float(seg.mean()), float(seg[0]), float(seg[-1]))
             for seg in segments
             if seg.size <= max_run_height
-            and seg[-1] >= edge_band
-            and seg[0] <= height - 1 - edge_band
+            and edge_band <= seg.mean() <= height - 1 - edge_band
         ]
         runs_per_column.append(runs)
     return runs_per_column
@@ -209,6 +215,63 @@ def find_seed_column(runs_per_column, num_series: int):
     if best_length == 0:
         return None
     return best_start + best_length // 2
+
+
+def segment_regions(width: int, marker_cols: np.ndarray):
+    """Split [0, width) into maximal column ranges separated by marker bands.
+
+    With no markers this yields a single whole-crop region, so tracking behaves
+    exactly as the old single-seed path.
+    """
+    regions = []
+    start = None
+    for x in range(width):
+        if marker_cols[x]:
+            if start is not None:
+                regions.append((start, x - 1))
+                start = None
+        elif start is None:
+            start = x
+    if start is not None:
+        regions.append((start, width - 1))
+    return regions
+
+
+def seed_and_track_region(
+    runs_per_column, num_series, lo, hi, height, series_y, min_share_gap
+):
+    """Seed within [lo, hi] (top-to-bottom) and track outward, staying in-region.
+
+    Returns True if the region was seeded. Series identity is the top-to-bottom
+    order at the region's seed column, so the same series index lines up across
+    regions split by a shift line.
+    """
+    region_runs = runs_per_column[lo : hi + 1]
+    local_seed = find_seed_column(region_runs, num_series)
+    if local_seed is None:
+        return False
+    seed_x = lo + local_seed
+
+    seed_runs = sorted(runs_per_column[seed_x], key=lambda run: run[0])
+    for s in range(num_series):
+        series_y[s, seed_x] = seed_runs[s][0]
+
+    for direction in (1, -1):
+        last_intervals = [(run[1], run[2]) for run in seed_runs]
+        last_x = [seed_x] * num_series
+        x = seed_x + direction
+        while lo <= x <= hi:
+            runs = runs_per_column[x]
+            if runs:
+                assignment = match_runs_to_series(
+                    runs, last_intervals, last_x, x, height, min_share_gap
+                )
+                for s, r in assignment.items():
+                    series_y[s, x] = runs[r][0]
+                    last_intervals[s] = (runs[r][1], runs[r][2])
+                    last_x[s] = x
+            x += direction
+    return True
 
 
 def match_runs_to_series(runs, last_intervals, last_x, x, height, min_share_gap):
@@ -254,20 +317,30 @@ def match_runs_to_series(runs, last_intervals, last_x, x, height, min_share_gap)
         assignment[s] = r
         used_runs.add(r)
 
-    # Second pass: let unmatched series share an already claimed run, either at
-    # tight distance (curves gradually merging) or after a long gap (series lost
-    # its curve and is recovering). Short dashed-gap columns stay unassigned so a
-    # dotted series does not zigzag onto a close neighboring curve.
+    # Second pass: let unmatched series share an already claimed run when curves
+    # converge or a series is recovering a lost curve. Three escalating cases:
+    #   - tight distance: curves gradually merging onto the same stroke;
+    #   - a few consecutive misses with a nearby run: a converging series whose
+    #     own (e.g. dashed) curve dropped out should follow the neighbour to the
+    #     shared endpoint rather than flat-line;
+    #   - a long gap: the series lost its curve entirely and is recovering.
+    # Plain short dashed-gap columns still stay unassigned so a dotted series does
+    # not zigzag onto a close neighbour mid-trace.
+    converge_tol = base_tol * CONVERGE_SHARE_TOL_FACTOR
     for dist, s, r in candidates:
         if s in assignment:
             continue
-        if dist <= base_tol or gaps[s] >= min_share_gap:
+        if (
+            dist <= base_tol
+            or (gaps[s] >= CONVERGE_GAP_COLS and dist <= converge_tol)
+            or gaps[s] >= min_share_gap
+        ):
             assignment[s] = r
 
     return assignment
 
 
-def cluster_series(gray_image: np.ndarray, num_series: int):
+def cluster_series(gray_image: np.ndarray, num_series: int, marker_cols=None):
     xs, ys, line_mask = extract_dark_pixels(gray_image)
     if xs.size == 0:
         raise ValueError("No dark pixels found inside plot crop")
@@ -276,42 +349,58 @@ def cluster_series(gray_image: np.ndarray, num_series: int):
     line_mask = remove_structural_lines(line_mask)
     runs_per_column = extract_column_runs(line_mask)
 
-    seed_x = find_seed_column(runs_per_column, num_series)
-    if seed_x is None:
-        raise ValueError(
-            f"No column with exactly {num_series} separable runs; cannot seed tracking"
-        )
+    # Columns covered by a vertical shift-line band carry no real curve data:
+    # blank their runs so no series can be matched across the discontinuity.
+    if marker_cols is None:
+        marker_cols = np.zeros(width, dtype=bool)
+    else:
+        marker_cols = np.asarray(marker_cols, dtype=bool)
+        for x in range(min(width, marker_cols.size)):
+            if marker_cols[x]:
+                runs_per_column[x] = []
 
     series_y = np.full((num_series, width), np.nan, dtype=np.float64)
-
-    # Seed assignment: series ordered top-to-bottom at the seed column
-    seed_runs = sorted(runs_per_column[seed_x], key=lambda run: run[0])
-    for s in range(num_series):
-        series_y[s, seed_x] = seed_runs[s][0]
-
     min_share_gap = max(10, int(round(width * 0.02)))
 
-    # Track outward from the seed in both directions
-    for direction in (1, -1):
-        last_intervals = [(run[1], run[2]) for run in seed_runs]
-        last_x = [seed_x] * num_series
-        x = seed_x + direction
-        while 0 <= x < width:
-            runs = runs_per_column[x]
-            if runs:
-                assignment = match_runs_to_series(
-                    runs, last_intervals, last_x, x, height, min_share_gap
-                )
-                for s, r in assignment.items():
-                    series_y[s, x] = runs[r][0]
-                    last_intervals[s] = (runs[r][1], runs[r][2])
-                    last_x[s] = x
-            x += direction
+    # Seed and track each shift-line-delimited region independently. A single
+    # seed in one region cannot follow a curve across a shift-line break, so the
+    # opposite side would otherwise be left to interpolate a straight diagonal.
+    regions = segment_regions(width, marker_cols)
+    seeded_any = False
+    for lo, hi in regions:
+        if seed_and_track_region(
+            runs_per_column, num_series, lo, hi, height, series_y, min_share_gap
+        ):
+            seeded_any = True
+
+    # Fallback: if no region had a clean seed column, seed once over the whole
+    # crop (ignoring region splits) so a graph still digitizes rather than fails.
+    if not seeded_any:
+        seed_x = find_seed_column(runs_per_column, num_series)
+        if seed_x is None:
+            raise ValueError(
+                f"No column with exactly {num_series} separable runs; cannot seed tracking"
+            )
+        seed_and_track_region(
+            runs_per_column, num_series, 0, width - 1, height, series_y, min_share_gap
+        )
+
+    # Shared endpoints: a series that tracked to within ENDPOINT_SNAP_FRACTION of
+    # the outermost tracked column is snapped out to it, so converging curves end
+    # together. Series that fall short by more than that are left to terminate at
+    # their own last real column instead of being flat-extrapolated to the edge.
+    assigned_per_series = [
+        np.flatnonzero(~np.isnan(series_y[c])) for c in range(num_series)
+    ]
+    non_empty = [a for a in assigned_per_series if a.size]
+    common_first = int(min((a[0] for a in non_empty), default=0))
+    common_last = int(max((a[-1] for a in non_empty), default=width - 1))
+    snap_tol = max(1, int(round(width * ENDPOINT_SNAP_FRACTION)))
 
     clusters = []
     for cluster_id in range(num_series):
         row = series_y[cluster_id]
-        assigned = np.flatnonzero(~np.isnan(row))
+        assigned = assigned_per_series[cluster_id]
         point_count = int(assigned.size)
         coverage_ratio = float(point_count) / float(width) if width > 0 else 0.0
 
@@ -331,13 +420,21 @@ def cluster_series(gray_image: np.ndarray, num_series: int):
         sample_y = np.clip(np.round(row[assigned]).astype(int), 0, height - 1)
         intensity_center = float(gray_image[sample_y, assigned].mean())
 
+        first_col, last_col = int(assigned[0]), int(assigned[-1])
+        lo_col = common_first if (first_col - common_first) <= snap_tol else first_col
+        hi_col = common_last if (common_last - last_col) <= snap_tol else last_col
+
         filled = np.interp(np.arange(width), assigned, row[assigned])
+        # Emit points only within this series' (snapped) tracked span, skipping
+        # shift-line columns. Outside the span we do not fabricate a y; inside,
+        # np.interp bridges short dashed gaps.
         points = [
             (
                 float(x) / float(width),
-                1.0 - float(y_val) / float(height),
+                1.0 - float(filled[x]) / float(height),
             )
-            for x, y_val in enumerate(filled)
+            for x in range(lo_col, hi_col + 1)
+            if not marker_cols[x]
         ]
 
         style = "solid" if coverage_ratio > 0.85 else "dashed"
@@ -411,20 +508,30 @@ def process_graph_png(png_path: Path, json_path: Path, root_dir: Path, summary: 
         return
 
     try:
-        # Check if manual shift markers exist in your JSON metadata
-        # Adjust the key name ("shift_markers_x" or "vertical_markers_px") to match your exact JSON structure
-        manual_markers = metadata.get("vertical_markers_px", [])
-        
-        vertical_markers_px, marker_mask, cleaned = detect_vertical_markers(
-            cropped, 
-            manual_markers=manual_markers
+        # vertical_markers_px in the JSON are ABSOLUTE image x. The crop used for
+        # tracing starts at x1, so convert each marker to a crop-relative column
+        # and discard any that fall outside this crop before masking.
+        crop_width = cropped.shape[1]
+        manual_markers_abs = metadata.get("vertical_markers_px", []) or []
+        manual_markers_crop = [
+            int(round(x)) - x1
+            for x in manual_markers_abs
+            if 0 <= int(round(x)) - x1 < crop_width
+        ]
+
+        marker_positions_crop, marker_mask, cleaned = detect_vertical_markers(
+            cropped,
+            manual_markers=manual_markers_crop,
         )
     except Exception:
         summary["failed"] += 1
         return
 
     try:
-        clusters = cluster_series(cleaned, num_series)
+        # Columns touched by the shift-line mask are no-data; pass them through so
+        # the tracer neither matches nor emits fabricated points there.
+        marker_cols = np.any(marker_mask > 0, axis=0) if marker_mask.size else None
+        clusters = cluster_series(cleaned, num_series, marker_cols=marker_cols)
     except Exception:
         summary["failed"] += 1
         return
@@ -440,7 +547,10 @@ def process_graph_png(png_path: Path, json_path: Path, root_dir: Path, summary: 
         del cluster["pixels"]
         csv_entries.append(cluster)
 
-    relative_markers = [round(float(x) / float(cropped.shape[1]), 4) for x in vertical_markers_px]
+    # Convert crop-relative marker columns back to the storage contract:
+    # vertical_markers_px = absolute image x; relative = crop_column / crop_width.
+    vertical_markers_px = [x1 + cx for cx in marker_positions_crop]
+    relative_markers = [round(cx / float(crop_width), 4) for cx in marker_positions_crop]
     needs_manual = any(cluster["coverage_ratio"] < 0.70 for cluster in csv_entries)
 
     metadata.update(

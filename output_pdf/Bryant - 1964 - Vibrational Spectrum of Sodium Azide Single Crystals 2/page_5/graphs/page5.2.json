@@ -47,17 +47,17 @@
     {
       "id": 3,
       "style": "dashed",
-      "intensity_center": 2.5,
-      "point_count": 611,
-      "coverage_ratio": 0.8125,
+      "intensity_center": 2.52,
+      "point_count": 608,
+      "coverage_ratio": 0.8085,
       "csv_path": "digitized/page5.2_series_3_dashed.csv"
     },
     {
       "id": 4,
       "style": "dashed",
-      "intensity_center": 0.84,
-      "point_count": 606,
-      "coverage_ratio": 0.8059,
+      "intensity_center": 0.82,
+      "point_count": 623,
+      "coverage_ratio": 0.8285,
       "csv_path": "digitized/page5.2_series_4_dashed.csv"
     }
   ]

@@ -28,6 +28,11 @@ MAX_LINE_WIDTH_PX = 4
 # Minimum vertical coverage across the entire column height (for dashes + solids)
 MIN_VERTICAL_SPAN_FRACTION = 0.85
 
+# The plot-box frame is itself a full-height column that would pass every gate.
+# Ignore peak candidates within this margin of either crop edge.
+EDGE_EXCLUSION_FRACTION = 0.02
+EDGE_EXCLUSION_MIN_PX = 5
+
 
 # ── helpers ───────────────────────────────────────────────────────────────────
 
@@ -99,6 +104,54 @@ def _validate_vertical_distribution(col_binary: np.ndarray) -> bool:
     return True
 
 
+def _candidate_passes_gates(
+    profile: np.ndarray, binary: np.ndarray, peak_x: int, width: int
+) -> bool:
+    """Run the per-column tests that distinguish a true shift line from noise."""
+    peak_value = float(profile[peak_x])
+
+    # ── local-maximum check ──────────────────────────────────────────────────
+    left_val  = float(profile[peak_x - 1]) if peak_x > 0          else 0.0
+    right_val = float(profile[peak_x + 1]) if peak_x < width - 1  else 0.0
+    if peak_value <= left_val or peak_value <= right_val:
+        return False
+
+    # ── neighbour contrast check ─────────────────────────────────────────────
+    lo = max(0,         peak_x - NEIGHBOR_HALF_WIDTH)
+    hi = min(width - 1, peak_x + NEIGHBOR_HALF_WIDTH)
+    neighbour_indices = [i for i in range(lo, hi + 1) if i != peak_x]
+    if neighbour_indices:
+        neighbour_mean = float(np.mean(profile[neighbour_indices]))
+        if neighbour_mean > peak_value * (1.0 - NEIGHBOR_CONTRAST_THRESHOLD):
+            return False
+
+    # ── relative width gate ──────────────────────────────────────────────────
+    # We measure width relative to the peak value itself instead of a global floor.
+    # This prevents noise from expanding the width bounds of low-density dashed lines.
+    threshold_sum = peak_value * 0.50
+    band_width = 1
+    # expand left
+    for dx in range(1, width):
+        x = peak_x - dx
+        if x < 0 or profile[x] < threshold_sum:
+            break
+        band_width += 1
+    # expand right
+    for dx in range(1, width):
+        x = peak_x + dx
+        if x >= width or profile[x] < threshold_sum:
+            break
+        band_width += 1
+    if band_width > MAX_LINE_WIDTH_PX:
+        return False
+
+    # ── distribution and span check ──────────────────────────────────────────
+    if not _validate_vertical_distribution(binary[:, peak_x]):
+        return False
+
+    return True
+
+
 def detect_vertical_shift_line(gray_crop: np.ndarray):
     """
     Return the x-coordinate (relative to crop) of a vertical shift line,
@@ -118,58 +171,35 @@ def detect_vertical_shift_line(gray_crop: np.ndarray):
     if profile.size == 0:
         return None
 
-    # ── 3. global peak + minimum height gate ────────────────────────────────
-    peak_x = int(np.argmax(profile))
-    peak_value = float(profile[peak_x])
     max_possible = 255.0 * height
+    min_peak = max_possible * MIN_COLUMN_RATIO
 
-    if peak_value < max_possible * MIN_COLUMN_RATIO:
-        return None
+    # ── 3. exclude the plot-frame borders ────────────────────────────────────
+    # The plot box's own left/right edges are full-height columns that pass every
+    # gate, so suppress candidates within a margin of either crop edge.
+    edge_margin = max(EDGE_EXCLUSION_MIN_PX, int(round(width * EDGE_EXCLUSION_FRACTION)))
+    working = profile.copy()
+    working[:edge_margin] = 0.0
+    if edge_margin > 0:
+        working[width - edge_margin:] = 0.0
 
-    # ── 4. local-maximum check ───────────────────────────────────────────────
-    left_val  = float(profile[peak_x - 1]) if peak_x > 0          else 0.0
-    right_val = float(profile[peak_x + 1]) if peak_x < width - 1  else 0.0
-
-    if peak_value <= left_val or peak_value <= right_val:
-        return None
-
-    # ── 5. neighbour contrast check ──────────────────────────────────────────
-    lo = max(0,         peak_x - NEIGHBOR_HALF_WIDTH)
-    hi = min(width - 1, peak_x + NEIGHBOR_HALF_WIDTH)
-    neighbour_indices = [i for i in range(lo, hi + 1) if i != peak_x]
-    if neighbour_indices:
-        neighbour_mean = float(np.mean(profile[neighbour_indices]))
-        if neighbour_mean > peak_value * (1.0 - NEIGHBOR_CONTRAST_THRESHOLD):
+    # ── 4. evaluate candidate peaks strongest-first ──────────────────────────
+    # A failed gate only rules out that one column (e.g. a sharp curve peak), so
+    # suppress it and fall through to the next-best candidate. The minimum-height
+    # gate is monotonic, so once the strongest remaining column is too short no
+    # later candidate can qualify and we stop.
+    for _ in range(width):
+        peak_x = int(np.argmax(working))
+        peak_value = float(working[peak_x])
+        if peak_value < min_peak:
             return None
+        if _candidate_passes_gates(profile, binary, peak_x, width):
+            return peak_x
+        lo = max(0, peak_x - 1)
+        hi = min(width, peak_x + 2)
+        working[lo:hi] = 0.0
 
-    # ── 6. relative width gate ───────────────────────────────────────────────
-    # We measure width relative to the peak value itself instead of a global floor.
-    # This prevents noise from expanding the width bounds of low-density dashed lines.
-    threshold_sum = peak_value * 0.50
-    band_width = 1
-    
-    # expand left
-    for dx in range(1, width):
-        x = peak_x - dx
-        if x < 0 or profile[x] < threshold_sum:
-            break
-        band_width += 1
-    # expand right
-    for dx in range(1, width):
-        x = peak_x + dx
-        if x >= width or profile[x] < threshold_sum:
-            break
-        band_width += 1
-
-    if band_width > MAX_LINE_WIDTH_PX:
-        return None
-
-    # ── 7. distribution and span check ───────────────────────────────────────
-    col_pixels = binary[:, peak_x]
-    if not _validate_vertical_distribution(col_pixels):
-        return None
-
-    return peak_x
+    return None
 
 
 # ── file processing ───────────────────────────────────────────────────────────
@@ -221,6 +251,12 @@ def process_pair(png_path: Path, json_path: Path):
 
     relative_x = detect_vertical_shift_line(crop)
     if relative_x is None:
+        # Clear any stale markers so downstream stages don't mask a phantom line.
+        if data.get("vertical_markers_px") or data.get("vertical_markers_relative_x"):
+            data["vertical_markers_px"] = []
+            data["vertical_markers_relative_x"] = []
+            safe_write_json(json_path, data)
+            print(f"[UPDATE] Cleared stale vertical markers in {json_path.name}")
         print(f"[SKIP] No valid vertical shift line found in {png_path}")
         return False
 

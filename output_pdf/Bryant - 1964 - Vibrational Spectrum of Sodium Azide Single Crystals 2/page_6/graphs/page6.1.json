@@ -32,16 +32,16 @@
       "id": 1,
       "style": "solid",
       "intensity_center": 0.34,
-      "point_count": 749,
-      "coverage_ratio": 0.9386,
+      "point_count": 740,
+      "coverage_ratio": 0.9273,
       "csv_path": "digitized/page6.1_series_1_solid.csv"
     },
     {
       "id": 2,
       "style": "solid",
       "intensity_center": 0.65,
-      "point_count": 789,
-      "coverage_ratio": 0.9887,
+      "point_count": 780,
+      "coverage_ratio": 0.9774,
       "csv_path": "digitized/page6.1_series_2_solid.csv"
     },
     {
@@ -56,8 +56,8 @@
       "id": 4,
       "style": "solid",
       "intensity_center": 0.33,
-      "point_count": 780,
-      "coverage_ratio": 0.9774,
+      "point_count": 781,
+      "coverage_ratio": 0.9787,
       "csv_path": "digitized/page6.1_series_4_solid.csv"
     }
   ]
