@@ -4,3 +4,7 @@ help_playground.py
 check_api_usage.py
 Graph_check.py
 
+# Verification tool run artifacts
+Graph_digi_compare/runs/
+__pycache__/
+.pytest_cache/
