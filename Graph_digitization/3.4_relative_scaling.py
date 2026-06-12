@@ -17,8 +17,9 @@ VERTICAL_SHIFT_PATTERN = re.compile(r"^(.+)_vertical_shift\.csv$")
 def parse_args():
     parser = argparse.ArgumentParser(
         description="Convert digitized graph CSVs from relative (0-1) coordinates "
-                     "to true axis values using axis_x_min/max and axis_y_min/max "
-                     "from the graph's JSON metadata. Writes copies; originals are untouched."
+                     "to true axis values using axis_x_origin/final or legacy axis_x_min/max "
+                     "and axis_y_origin/final or legacy axis_y_min/max from the graph's JSON metadata. "
+                     "Writes copies; originals are untouched."
     )
     parser.add_argument(
         "root",
@@ -52,7 +53,29 @@ def find_digitized_folders(root_dir: Path):
 
 
 def get_axis_bounds(metadata: dict):
-    """Return (x_min, x_max, y_min, y_max) as floats, or None if any are missing/invalid."""
+    """Return (x_origin, x_final, y_origin, y_final) as floats, or None if invalid.
+
+    This prefers explicit origin/final fields (axis_x_origin/axis_x_final,
+    axis_y_origin/axis_y_final) but falls back to legacy axis_x_min/max and
+    axis_y_min/max for compatibility.
+    """
+    origin_keys = (
+        "axis_x_origin",
+        "axis_x_final",
+        "axis_y_origin",
+        "axis_y_final",
+    )
+    if all(k in metadata and metadata[k] not in (None, "") for k in origin_keys):
+        try:
+            return (
+                float(metadata["axis_x_origin"]),
+                float(metadata["axis_x_final"]),
+                float(metadata["axis_y_origin"]),
+                float(metadata["axis_y_final"]),
+            )
+        except (TypeError, ValueError):
+            return None
+
     required = ("axis_x_min", "axis_x_max", "axis_y_min", "axis_y_max")
     if not all(k in metadata and metadata[k] not in (None, "") for k in required):
         return None
@@ -71,7 +94,11 @@ def rescale_csv(csv_path: Path, json_path: Path, output_path: Path):
 
     bounds = get_axis_bounds(metadata)
     if bounds is None:
-        print(f"  Skipping {csv_path.name}: {json_path.name} is missing axis_x_min/axis_x_max/axis_y_min/axis_y_max")
+        print(
+            f"  Skipping {csv_path.name}: {json_path.name} is missing "
+            "axis_x_origin/axis_x_final/axis_y_origin/axis_y_final or legacy "
+            "axis_x_min/axis_x_max/axis_y_min/axis_y_max"
+        )
         return False
 
     x_min, x_max, y_min, y_max = bounds
@@ -106,7 +133,11 @@ def rescale_vertical_shift_csv(csv_path: Path, json_path: Path, output_path: Pat
 
     bounds = get_axis_bounds(metadata)
     if bounds is None:
-        print(f"  Skipping {csv_path.name}: {json_path.name} is missing axis_x_min/axis_x_max/axis_y_min/axis_y_max")
+        print(
+            f"  Skipping {csv_path.name}: {json_path.name} is missing "
+            "axis_x_origin/axis_x_final/axis_y_origin/axis_y_final or legacy "
+            "axis_x_min/axis_x_max/axis_y_min/axis_y_max"
+        )
         return False
 
     x_min, x_max, y_min, y_max = bounds

@@ -96,28 +96,32 @@ def process_png(png_path: Path, json_path: Path, mode: int):
         if mode == 2:
             axis_x_label = input("axis_x_label (string): ")
             axis_x_units = input("axis_x_units (string, press enter to leave blank): ")
-            axis_x_min = prompt_float("axis_x_min (float, press enter for default 0-1 scale): ", allow_blank=True)
-            if axis_x_min == "":
-                axis_x_min, axis_x_max = 0.0, 1.0
+            axis_x_origin = prompt_float("axis_x_origin (float, press enter for default 0-1 scale): ", allow_blank=True)
+            if axis_x_origin == "":
+                axis_x_origin, axis_x_final = 0.0, 1.0
             else:
-                axis_x_max = prompt_float("axis_x_max (float): ")
+                axis_x_final = prompt_float("axis_x_final (float): ")
             axis_y_label = input("axis_y_label (string): ")
             axis_y_units = input("axis_y_units (string, press enter to leave blank): ")
-            axis_y_min = prompt_float("axis_y_min (float, press enter for default 0-1 scale): ", allow_blank=True)
-            if axis_y_min == "":
-                axis_y_min, axis_y_max = 0.0, 1.0
+            axis_y_origin = prompt_float("axis_y_origin (float, press enter for default 0-1 scale): ", allow_blank=True)
+            if axis_y_origin == "":
+                axis_y_origin, axis_y_final = 0.0, 1.0
             else:
-                axis_y_max = prompt_float("axis_y_max (float): ")
+                axis_y_final = prompt_float("axis_y_final (float): ")
 
             data.update({
                 "axis_x_label": axis_x_label,
                 "axis_x_units": axis_x_units if axis_x_units != "" else "",
-                "axis_x_min": axis_x_min,
-                "axis_x_max": axis_x_max,
+                "axis_x_origin": axis_x_origin,
+                "axis_x_final": axis_x_final,
+                "axis_x_min": axis_x_origin,
+                "axis_x_max": axis_x_final,
                 "axis_y_label": axis_y_label,
                 "axis_y_units": axis_y_units if axis_y_units != "" else "",
-                "axis_y_min": axis_y_min,
-                "axis_y_max": axis_y_max,
+                "axis_y_origin": axis_y_origin,
+                "axis_y_final": axis_y_final,
+                "axis_y_min": axis_y_origin,
+                "axis_y_max": axis_y_final,
             })
 
         # Close window only after CLI prompts are completed

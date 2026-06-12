@@ -14,8 +14,9 @@ SYSTEM_PROMPT = (
     "You will receive exactly one graph image and must respond with a single JSON object only. "
     "Do not include any markdown, commentary, or extra fields. "
     "Return exactly these fields: axis_x_label, axis_y_label, axis_x_units, axis_y_units, "
-    "axis_x_min, axis_x_max, axis_y_min, axis_y_max, plot_bounds, num_series. "
+    "axis_x_origin, axis_x_final, axis_y_origin, axis_y_final, plot_bounds, num_series. "
     "Use empty strings for units when none are present. "
+    "Use axis_x_origin/axis_x_final and axis_y_origin/axis_y_final rather than axis_x_min/axis_x_max or axis_y_min/axis_y_max. "
     "The plot_bounds object must contain x1, y1, x2, y2 with top-left origin pixel coordinates."
 )
 
@@ -148,10 +149,10 @@ def validate_vision_payload(payload, image_width, image_height):
         "axis_y_label",
         "axis_x_units",
         "axis_y_units",
-        "axis_x_min",
-        "axis_x_max",
-        "axis_y_min",
-        "axis_y_max",
+        "axis_x_origin",
+        "axis_x_final",
+        "axis_y_origin",
+        "axis_y_final",
         "plot_bounds",
         "num_series",
     ]
@@ -163,10 +164,14 @@ def validate_vision_payload(payload, image_width, image_height):
     validate_plot_bounds(plot_bounds, image_width, image_height)
 
     # Convert numeric axis values and series count for consistency.
-    payload["axis_x_min"] = float(payload["axis_x_min"])
-    payload["axis_x_max"] = float(payload["axis_x_max"])
-    payload["axis_y_min"] = float(payload["axis_y_min"])
-    payload["axis_y_max"] = float(payload["axis_y_max"])
+    payload["axis_x_origin"] = float(payload["axis_x_origin"])
+    payload["axis_x_final"] = float(payload["axis_x_final"])
+    payload["axis_y_origin"] = float(payload["axis_y_origin"])
+    payload["axis_y_final"] = float(payload["axis_y_final"])
+    payload["axis_x_min"] = payload["axis_x_origin"]
+    payload["axis_x_max"] = payload["axis_x_final"]
+    payload["axis_y_min"] = payload["axis_y_origin"]
+    payload["axis_y_max"] = payload["axis_y_final"]
     payload["num_series"] = int(payload["num_series"])
 
     return payload
