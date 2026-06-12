@@ -2,5 +2,55 @@
   "source_png": "Bryant - 1964 - Vibrational Spectrum of Sodium Azide Single Crystals 2/page_6/graphs/page6.1.png",
   "image_width_px": 1015,
   "image_height_px": 618,
-  "image_measured": true
+  "image_measured": true,
+  "plot_bounds": {
+    "x1": 138.7,
+    "y1": 37.6,
+    "x2": 935.7,
+    "y2": 510.3
+  },
+  "num_series": 4,
+  "vision_extracted": true,
+  "manually_entered": true,
+  "needs_manual_review": false,
+  "collection_mode": 1,
+  "digitized": true,
+  "digitization_method": "intensity_cluster_skeleton",
+  "axis_scale": "relative",
+  "vertical_markers_px": [],
+  "vertical_markers_relative_x": [],
+  "series": [
+    {
+      "id": 1,
+      "style": "solid",
+      "intensity_center": 0.35,
+      "point_count": 733,
+      "coverage_ratio": 0.9197,
+      "csv_path": "digitized/page6.1_series_1_solid.csv"
+    },
+    {
+      "id": 2,
+      "style": "solid",
+      "intensity_center": 0.66,
+      "point_count": 773,
+      "coverage_ratio": 0.9699,
+      "csv_path": "digitized/page6.1_series_2_solid.csv"
+    },
+    {
+      "id": 3,
+      "style": "solid",
+      "intensity_center": 0.99,
+      "point_count": 771,
+      "coverage_ratio": 0.9674,
+      "csv_path": "digitized/page6.1_series_3_solid.csv"
+    },
+    {
+      "id": 4,
+      "style": "solid",
+      "intensity_center": 0.33,
+      "point_count": 779,
+      "coverage_ratio": 0.9774,
+      "csv_path": "digitized/page6.1_series_4_solid.csv"
+    }
+  ]
 }

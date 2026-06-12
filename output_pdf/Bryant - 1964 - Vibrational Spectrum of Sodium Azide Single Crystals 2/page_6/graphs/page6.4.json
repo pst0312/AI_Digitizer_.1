@@ -2,5 +2,43 @@
   "source_png": "Bryant - 1964 - Vibrational Spectrum of Sodium Azide Single Crystals 2/page_6/graphs/page6.4.png",
   "image_width_px": 636,
   "image_height_px": 1478,
-  "image_measured": true
+  "image_measured": true,
+  "plot_bounds": {
+    "x1": 127.6,
+    "y1": 87.1,
+    "x2": 595.4,
+    "y2": 1310.7
+  },
+  "num_series": 2,
+  "vision_extracted": true,
+  "manually_entered": true,
+  "needs_manual_review": false,
+  "collection_mode": 1,
+  "digitized": true,
+  "digitization_method": "intensity_cluster_skeleton",
+  "axis_scale": "relative",
+  "vertical_markers_px": [
+    594
+  ],
+  "vertical_markers_relative_x": [
+    0.9979
+  ],
+  "series": [
+    {
+      "id": 1,
+      "style": "solid",
+      "intensity_center": 0.0,
+      "point_count": 405,
+      "coverage_ratio": 0.8672,
+      "csv_path": "digitized/page6.4_series_1_solid.csv"
+    },
+    {
+      "id": 2,
+      "style": "solid",
+      "intensity_center": 0.0,
+      "point_count": 427,
+      "coverage_ratio": 0.9143,
+      "csv_path": "digitized/page6.4_series_2_solid.csv"
+    }
+  ]
 }
