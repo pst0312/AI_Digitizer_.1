@@ -1,0 +1,11 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(doc_env/bin/python3 -c ' *)",
+      "Bash(doc_env/bin/python3 \"Graph_digitization/3.3_graph_reading.py\")",
+      "Bash(doc_env/bin/python3 Graph_digi_compare/run_compare.py)",
+      "Bash(doc_env/bin/python3 -m pytest Graph_digi_compare/tests -q)",
+      "Bash(doc_env/bin/python3 \"Graph_digitization/3.4_relative_scaling.py\")"
+    ]
+  }
+}

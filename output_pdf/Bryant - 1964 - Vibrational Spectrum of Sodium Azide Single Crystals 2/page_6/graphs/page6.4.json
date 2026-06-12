@@ -43,7 +43,7 @@
     {
       "id": 2,
       "style": "solid",
-      "intensity_center": 0.59,
+      "intensity_center": 0.0,
       "point_count": 429,
       "coverage_ratio": 0.9226,
       "csv_path": "digitized/page6.4_series_2_solid.csv"

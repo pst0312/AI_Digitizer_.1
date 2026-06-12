@@ -31,7 +31,15 @@ STEEP_TOL_FACTOR = 1.0             # extra tolerance per pixel of last-interval 
 STEEP_TOL_MAX_FRACTION = 0.30      # ceiling for that steep-stroke tolerance bonus
 JUMP_HISTORY_COLS = 5              # recent matches remembered for the jump-size gate bonus
 STYLE_PENALTY_FRACTION = 0.03      # ranking penalty for runs whose style mismatches the series
-SOLID_COMPONENT_MIN_FRACTION = 0.05  # component x-extent (fraction of width) marking a solid stroke
+WALK_MAX_STEPS = 16                # columns walked each way when probing a run's continuity
+SOLID_WALK_FRACTION = 0.8          # walked fraction of the probe window marking a solid stroke
+DASHED_WALK_FRACTION = 0.65        # walked fraction below which a run is confidently dashed
+WALK_PINCH_ROWS = 2                # ink overlap this thin (2 cols in a row) is a dot-chain neck
+STEEP_CLASS_FACTOR = 2.5           # runs taller than this x median run height are style-ambiguous
+STEEP_CLASS_MIN_PX = 9             # floor for that steep/ambiguous run height threshold
+ENDPOINT_GAP_FACTOR = 4.0          # snap reach = this x the series' median matched-column gap
+VELOCITY_SMOOTHING = 0.5           # weight of the newest dy/dx sample in the velocity estimate
+VELOCITY_EXTRAP_MAX_COLS = 4       # velocity extrapolation horizon across unmatched columns
 
 
 def parse_args():
@@ -225,41 +233,96 @@ def extract_column_runs(line_mask: np.ndarray):
     return runs_per_column
 
 
-def classify_runs(line_mask: np.ndarray, runs_per_column):
-    """Label each run 'solid' or 'dashed' from its connected component's x-extent.
+def _walk_extent(line_mask: np.ndarray, x: int, top: int, bottom: int) -> int:
+    """Count columns of locally connected ink reachable left+right from a run.
 
-    Dash/dot fragments are small in BOTH dimensions; a solid curve forms
-    components that are long in at least one direction (wide normally, tall on
-    a near-vertical flank even if a scan artifact severs it from the rest of
-    the curve). At a solid/dashed intersection the merged component is large,
-    so touching dashes read as 'solid' there - harmless, since distance still
-    dominates matching.
+    The walk follows ink that overlaps the previous column's interval (with
+    1px diagonal slack), so it traces only the stroke this run belongs to and
+    is immune to far-away curves sharing a connected component. Two stop
+    conditions distinguish a dot chain from a solid stroke: a clean gap, or a
+    sustained pinch (the 1-2 row neck where adjacent dots merely touch).
     """
     height, width = line_mask.shape[:2]
-    solid_min = max(20, int(round(width * SOLID_COMPONENT_MIN_FRACTION)))
-    _, labels, stats, _ = cv2.connectedComponentsWithStats(line_mask, connectivity=8)
+    total = 0
+    for direction in (1, -1):
+        lo, hi = top, bottom
+        xc = x
+        thin_streak = 0
+        for _ in range(WALK_MAX_STEPS):
+            xn = xc + direction
+            if not (0 <= xn < width):
+                break
+            band = line_mask[max(0, lo - 1) : min(height, hi + 2), xn]
+            ys = np.flatnonzero(band)
+            if ys.size == 0:
+                break
+            if ys.size <= WALK_PINCH_ROWS:
+                thin_streak += 1
+                if thin_streak >= 2:
+                    break
+            else:
+                thin_streak = 0
+            base = max(0, lo - 1)
+            lo, hi = base + int(ys[0]), base + int(ys[-1])
+            xc = xn
+            total += 1
+    return total
+
+
+def classify_runs(line_mask: np.ndarray, runs_per_column):
+    """Label each run 'solid', 'dashed', or None from local horizontal continuity.
+
+    Connected-component extent is unreliable here: dots that touch each other
+    or graze a solid curve merge into one large component, so dotted curves
+    read as solid. Instead, walk outward from each run along locally connected
+    ink: a solid stroke walks the whole probe window, a dot chain stops at the
+    first inter-dot gap or sustained pinch. The threshold scales with how much
+    window is actually reachable so runs near the crop edge are not biased
+    toward 'dashed'.
+
+    Runs much taller than the typical line thickness are near-vertical steep
+    strokes; horizontal probing says nothing about their style (adjacent
+    columns overlap by a couple of rows even on a solid flank, which reads as
+    a dot-chain pinch). They get class None: style-ambiguous, treated as
+    matching any series. Runs whose walked fraction lands between the dashed
+    and solid thresholds (e.g. a solid line with a scan break nearby, or a
+    densely-merged dot chain) are also None, so they neither poison the style
+    vote nor let a coasting dashed series share them as if they were dots.
+    """
+    width = line_mask.shape[1]
+    heights = [b - t + 1.0 for runs in runs_per_column for _, t, b in runs]
+    typical = float(np.median(heights)) if heights else 3.0
+    steep_min = max(STEEP_CLASS_MIN_PX, typical * STEEP_CLASS_FACTOR)
 
     run_classes_per_column = []
     for x, runs in enumerate(runs_per_column):
+        reachable = min(WALK_MAX_STEPS, width - 1 - x) + min(WALK_MAX_STEPS, x)
+        solid_min = max(4, int(round(reachable * SOLID_WALK_FRACTION)))
+        dashed_max = int(round(reachable * DASHED_WALK_FRACTION))
         classes = []
         for _, top, bottom in runs:
-            seg = labels[int(top) : int(bottom) + 1, x]
-            seg = seg[seg > 0]
-            if seg.size == 0:
-                classes.append("dashed")
+            if (bottom - top + 1.0) >= steep_min:
+                classes.append(None)
                 continue
-            label = int(np.bincount(seg).argmax())
-            comp_extent = max(
-                int(stats[label, cv2.CC_STAT_WIDTH]),
-                int(stats[label, cv2.CC_STAT_HEIGHT]),
-            )
-            classes.append("solid" if comp_extent >= solid_min else "dashed")
+            extent = _walk_extent(line_mask, x, int(top), int(bottom))
+            if extent >= solid_min:
+                classes.append("solid")
+            elif extent <= dashed_max:
+                classes.append("dashed")
+            else:
+                classes.append(None)
         run_classes_per_column.append(classes)
     return run_classes_per_column
 
 
-def find_seed_column(runs_per_column, num_series: int):
-    """Pick the middle of the longest stretch of columns with exactly num_series runs."""
+def find_seed_stretch(runs_per_column, num_series: int):
+    """Find the longest stretch of columns with exactly num_series runs.
+
+    Returns (seed_column, stretch_first, stretch_last) or None. Within such a
+    stretch no two curves merge, so the top-to-bottom run order is a stable,
+    unambiguous series assignment - which makes the stretch both the safest
+    seed point and the only trustworthy place to vote each series' line style.
+    """
     best_start, best_length = -1, 0
     start = -1
     for x, runs in enumerate(runs_per_column + [[]]):
@@ -272,7 +335,11 @@ def find_seed_column(runs_per_column, num_series: int):
             start = -1
     if best_length == 0:
         return None
-    return best_start + best_length // 2
+    return (
+        best_start + best_length // 2,
+        best_start,
+        best_start + best_length - 1,
+    )
 
 
 def segment_regions(width: int, marker_cols: np.ndarray):
@@ -295,23 +362,33 @@ def segment_regions(width: int, marker_cols: np.ndarray):
     return regions
 
 
-def chain_stacked_runs(runs, assignment):
+def chain_stacked_runs(runs, assignment, run_classes=None, series_styles=None):
     """Extend each matched run with unclaimed runs stacked within CHAIN_GAP_PX.
 
     Dotted/dashed strokes on a steep flank appear as several short runs stacked
     vertically in one column; only one can be matched directly, so absorb the
     rest into the matched interval. Runs claimed by any series never chain, so a
-    neighbouring curve's own stroke cannot be swallowed.
+    neighbouring curve's own stroke cannot be swallowed. When styles are known,
+    a series also only absorbs runs of its own style, so a solid curve passing
+    a dotted curve's vertical dot stack does not swallow the dots.
     """
     claimed = set(assignment.values())
     intervals = {}
     for s, r in assignment.items():
+        style = series_styles[s] if series_styles is not None else None
         top, bottom = runs[r][1], runs[r][2]
         changed = True
         while changed:
             changed = False
             for idx, (_, run_top, run_bottom) in enumerate(runs):
                 if idx in claimed:
+                    continue
+                if (
+                    style is not None
+                    and run_classes is not None
+                    and run_classes[idx] is not None
+                    and run_classes[idx] != style
+                ):
                     continue
                 if run_top > bottom:
                     gap = run_top - bottom
@@ -338,32 +415,45 @@ def seed_and_track_region(
     height,
     series_y,
     series_iv,
-    style_counts,
+    series_own,
     min_share_gap,
 ):
     """Seed within [lo, hi] (top-to-bottom) and track outward, staying in-region.
 
     Returns True if the region was seeded. Series identity is the top-to-bottom
     order at the region's seed column, so the same series index lines up across
-    regions split by a shift line.
+    regions split by a shift line. series_own records, per column, whether the
+    matched run's style agrees with the series (None-class steep runs agree
+    with everything); endpoint trimming later keeps only the span backed by
+    own-style evidence, so a series that recovered onto a neighbour's curve
+    near the crop edge does not get a fabricated start/end there.
     """
     region_runs = runs_per_column[lo : hi + 1]
-    local_seed = find_seed_column(region_runs, num_series)
-    if local_seed is None:
+    found = find_seed_stretch(region_runs, num_series)
+    if found is None:
         return False
-    seed_x = lo + local_seed
+    seed_x = lo + found[0]
+
+    def is_own(s, run_class):
+        return (
+            run_class is None
+            or series_styles is None
+            or series_styles[s] is None
+            or series_styles[s] == run_class
+        )
 
     seed_order = sorted(range(len(runs_per_column[seed_x])), key=lambda r: runs_per_column[seed_x][r][0])
     seed_runs = [runs_per_column[seed_x][r] for r in seed_order]
     for s in range(num_series):
         series_y[s, seed_x] = seed_runs[s][0]
         series_iv[s, seed_x] = (seed_runs[s][1], seed_runs[s][2])
-        style_counts[s][run_classes[seed_x][seed_order[s]]] += 1
+        series_own[s, seed_x] = is_own(s, run_classes[seed_x][seed_order[s]])
 
     for direction in (1, -1):
         last_intervals = [(run[1], run[2]) for run in seed_runs]
         last_x = [seed_x] * num_series
         last_center = [run[0] for run in seed_runs]
+        last_velocity = [0.0] * num_series
         jump_history = [[] for _ in range(num_series)]
         x = seed_x + direction
         while lo <= x <= hi:
@@ -375,6 +465,20 @@ def seed_and_track_region(
                 jump_bonus = [
                     max(hist) if hist else 0.0 for hist in jump_history
                 ]
+                # Velocity-extrapolated offset: where each series' motion says
+                # it should be by column x. The horizon is capped so a series
+                # lost for many columns does not extrapolate off the plot.
+                pred_shifts = [
+                    last_velocity[s]
+                    * float(
+                        np.clip(
+                            x - last_x[s],
+                            -VELOCITY_EXTRAP_MAX_COLS,
+                            VELOCITY_EXTRAP_MAX_COLS,
+                        )
+                    )
+                    for s in range(num_series)
+                ]
                 assignment = match_runs_to_series(
                     runs,
                     run_classes[x],
@@ -385,8 +489,11 @@ def seed_and_track_region(
                     height,
                     min_share_gap,
                     jump_bonus,
+                    pred_shifts,
                 )
-                chained = chain_stacked_runs(runs, assignment)
+                chained = chain_stacked_runs(
+                    runs, assignment, run_classes[x], series_styles
+                )
                 for s, r in assignment.items():
                     top, bottom = chained[s]
                     if (top, bottom) == (runs[r][1], runs[r][2]):
@@ -395,12 +502,18 @@ def seed_and_track_region(
                         series_y[s, x] = 0.5 * (top + bottom)
                     series_iv[s, x] = (top, bottom)
                     last_intervals[s] = (top, bottom)
+                    dx = float(x - last_x[s])  # signed; works for both directions
+                    sample_v = (series_y[s, x] - last_center[s]) / dx
+                    last_velocity[s] = (
+                        VELOCITY_SMOOTHING * sample_v
+                        + (1.0 - VELOCITY_SMOOTHING) * last_velocity[s]
+                    )
                     last_x[s] = x
                     jump_history[s].append(abs(series_y[s, x] - last_center[s]))
                     if len(jump_history[s]) > JUMP_HISTORY_COLS:
                         jump_history[s].pop(0)
                     last_center[s] = series_y[s, x]
-                    style_counts[s][run_classes[x][r]] += 1
+                    series_own[s, x] = is_own(s, run_classes[x][r])
             x += direction
     return True
 
@@ -415,14 +528,21 @@ def match_runs_to_series(
     height,
     min_share_gap,
     jump_bonus=None,
+    pred_shifts=None,
 ):
     """Assign column runs to series by proximity to each series' last matched run.
 
     Distance is measured between [top, bottom] intervals, so a series that just
     traversed a tall near-vertical stroke (sharp peak/dip) can continue from
-    either end of it. When series styles are known (second tracking pass), a run
-    whose solid/dashed class mismatches the series is ranked behind same-style
-    runs at comparable distance, which keeps identities straight at crossings.
+    either end of it. When series styles are known, a run whose solid/dashed
+    class mismatches the series is ranked behind same-style runs at comparable
+    distance, which keeps identities straight at crossings.
+
+    pred_shifts carries each series' velocity-extrapolated vertical offset.
+    Candidates GATE on the better of raw and predicted distance (so nothing a
+    static matcher would accept is lost) but RANK on predicted distance: a
+    series moving steeply keeps following its own motion at a crossing instead
+    of hopping onto a nearer but differently-moving neighbour stroke.
     """
     num_series = len(last_intervals)
     base_tol = height * BASE_MATCH_TOL_FRACTION
@@ -441,6 +561,11 @@ def match_runs_to_series(
     ]
     if jump_bonus is None:
         jump_bonus = [0.0] * num_series
+    if pred_shifts is None:
+        pred_shifts = [0.0] * num_series
+    pred_shifts = [
+        float(np.clip(shift, -steep_cap, steep_cap)) for shift in pred_shifts
+    ]
     tolerances = [
         min(tol_cap, base_tol + growth * max(0, gaps[s] - 1))
         + steep_bonus[s]
@@ -448,9 +573,10 @@ def match_runs_to_series(
         for s in range(num_series)
     ]
 
-    def interval_distance(series_idx, run_idx):
+    def interval_distance(series_idx, run_idx, shift=0.0):
         _, run_top, run_bottom = runs[run_idx]
-        last_top, last_bottom = last_intervals[series_idx]
+        last_top = last_intervals[series_idx][0] + shift
+        last_bottom = last_intervals[series_idx][1] + shift
         if run_top > last_bottom:
             return run_top - last_bottom
         if last_top > run_bottom:
@@ -460,21 +586,31 @@ def match_runs_to_series(
     def style_matches(series_idx, run_idx):
         if series_styles is None or series_styles[series_idx] is None:
             return True
+        if run_classes[run_idx] is None:  # steep/ambiguous stroke
+            return True
         return series_styles[series_idx] == run_classes[run_idx]
 
-    # Candidates gate on raw distance (so a lone mismatched run is still usable)
-    # but rank by distance plus a penalty for style mismatch. A tall candidate
-    # run is itself a steep stroke; the series attaches at its near end, so its
-    # height also relaxes the gate (mirror of the last-interval steep bonus).
+    def style_strict(series_idx, run_idx):
+        """Like style_matches, but ambiguous (None) runs do NOT qualify."""
+        if series_styles is None or series_styles[series_idx] is None:
+            return True
+        return series_styles[series_idx] == run_classes[run_idx]
+
+    # Candidates gate on the better of raw/predicted distance (so a lone
+    # mismatched run is still usable) but rank by predicted distance plus a
+    # penalty for style mismatch. A tall candidate run is itself a steep
+    # stroke; the series attaches at its near end, so its height also relaxes
+    # the gate (mirror of the last-interval steep bonus).
     candidates = []
     for s in range(num_series):
         for r in range(len(runs)):
-            dist = interval_distance(s, r)
+            raw_dist = interval_distance(s, r)
+            pred_dist = interval_distance(s, r, pred_shifts[s])
             run_bonus = min(steep_cap, 0.5 * (runs[r][2] - runs[r][1]))
-            if dist > tolerances[s] + run_bonus:
+            if min(raw_dist, pred_dist) > tolerances[s] + run_bonus:
                 continue
-            rank = dist if style_matches(s, r) else dist + style_penalty
-            candidates.append((rank, dist, s, r))
+            rank = pred_dist if style_matches(s, r) else pred_dist + style_penalty
+            candidates.append((rank, pred_dist, s, r))
     candidates.sort()
 
     # First pass: unique greedy matching so re-splitting curves separate again
@@ -500,18 +636,17 @@ def match_runs_to_series(
     for rank, dist, s, r in candidates:
         if s in assignment:
             continue
-        # Tight-distance sharing is for genuinely coincident curves, which meet
-        # on a thin stroke. A tall steep stroke of the other style is a
-        # neighbour's peak flank: a dashed series must coast its dash gap there,
-        # not ride the solid line away from its own curve.
-        run_height = runs[r][2] - runs[r][1] + 1.0
-        coincident = style_matches(s, r) or run_height <= base_tol
+        # Sharing demands a STRICT style match (ambiguous runs excluded; always
+        # true when styles are unknown). Without this, a dashed series coasting
+        # an ordinary dot gap a few pixels under a solid curve grabs the solid
+        # run and zigzags up to it between its own dots; only the long-gap
+        # recovery path may take whatever stroke is available.
         if (
-            (dist <= base_tol and coincident)
+            (dist <= base_tol and style_strict(s, r))
             or (
                 gaps[s] >= CONVERGE_GAP_COLS
                 and dist <= converge_tol
-                and style_matches(s, r)
+                and style_strict(s, r)
             )
             or gaps[s] >= min_share_gap
         ):
@@ -608,57 +743,93 @@ def cluster_series(gray_image: np.ndarray, num_series: int, marker_cols=None):
     min_share_gap = max(10, int(round(width * 0.02)))
     regions = segment_regions(width, marker_cols)
 
-    def track_all(series_styles):
-        """One full tracking pass; returns (series_y, series_iv, style_counts)."""
-        series_y = np.full((num_series, width), np.nan, dtype=np.float64)
-        series_iv = np.full((num_series, width, 2), np.nan, dtype=np.float64)
-        style_counts = [{"solid": 0, "dashed": 0} for _ in range(num_series)]
+    # Vote each series' style positionally inside the seed stretches: there,
+    # every column holds exactly num_series runs, so the k-th run from the top
+    # IS series k - no tracking involved, so crossing-induced identity swaps
+    # cannot contaminate the vote (a full-trace majority vote can come out
+    # chimeric when two curves trade places mid-graph). Steep None-class runs
+    # carry no style evidence and abstain.
+    style_counts = [{"solid": 0, "dashed": 0} for _ in range(num_series)]
 
-        # Seed and track each shift-line-delimited region independently. A single
-        # seed in one region cannot follow a curve across a shift-line break, so
-        # the opposite side would otherwise be left to interpolate a diagonal.
-        seeded_any = False
-        for lo, hi in regions:
-            if seed_and_track_region(
-                runs_per_column, run_classes, series_styles, num_series,
-                lo, hi, height, series_y, series_iv, style_counts, min_share_gap,
-            ):
-                seeded_any = True
-
-        # Fallback: if no region had a clean seed column, seed once over the
-        # whole crop so a graph still digitizes rather than fails.
-        if not seeded_any:
-            if find_seed_column(runs_per_column, num_series) is None:
-                raise ValueError(
-                    f"No column with exactly {num_series} separable runs; cannot seed tracking"
-                )
-            seed_and_track_region(
-                runs_per_column, run_classes, series_styles, num_series,
-                0, width - 1, height, series_y, series_iv, style_counts, min_share_gap,
+    def vote_stretch(lo, hi):
+        found = find_seed_stretch(runs_per_column[lo : hi + 1], num_series)
+        if found is None:
+            return False
+        _, s_lo, s_hi = found
+        for x in range(lo + s_lo, lo + s_hi + 1):
+            order = sorted(
+                range(num_series), key=lambda r: runs_per_column[x][r][0]
             )
-        return series_y, series_iv, style_counts
+            for s, r in enumerate(order):
+                cls = run_classes[x][r]
+                if cls is not None:
+                    style_counts[s][cls] += 1
+        return True
 
-    # Pass 1 (style-blind) establishes which series is solid vs dashed from the
-    # connected-component class of the runs it matched. Pass 2 re-tracks with
-    # those styles so each series prefers strokes of its own kind at crossings.
-    _, _, style_counts = track_all(None)
+    voted_any = False
+    for lo, hi in regions:
+        voted_any = vote_stretch(lo, hi) or voted_any
+    if not voted_any:
+        vote_stretch(0, width - 1)
+
     series_styles = [
         ("solid" if counts["solid"] >= counts["dashed"] else "dashed")
         if (counts["solid"] + counts["dashed"]) > 0
         else None
         for counts in style_counts
     ]
-    series_y, series_iv, _ = track_all(series_styles)
+
+    # Single tracking pass with the voted styles, so each series prefers
+    # strokes of its own kind at crossings from the start.
+    series_y = np.full((num_series, width), np.nan, dtype=np.float64)
+    series_iv = np.full((num_series, width, 2), np.nan, dtype=np.float64)
+    series_own = np.zeros((num_series, width), dtype=bool)
+
+    # Seed and track each shift-line-delimited region independently. A single
+    # seed in one region cannot follow a curve across a shift-line break, so
+    # the opposite side would otherwise be left to interpolate a diagonal.
+    seeded_any = False
+    for lo, hi in regions:
+        if seed_and_track_region(
+            runs_per_column, run_classes, series_styles, num_series,
+            lo, hi, height, series_y, series_iv, series_own, min_share_gap,
+        ):
+            seeded_any = True
+
+    # Fallback: if no region had a clean seed column, seed once over the
+    # whole crop so a graph still digitizes rather than fails.
+    if not seeded_any:
+        if find_seed_stretch(runs_per_column, num_series) is None:
+            raise ValueError(
+                f"No column with exactly {num_series} separable runs; cannot seed tracking"
+            )
+        seed_and_track_region(
+            runs_per_column, run_classes, series_styles, num_series,
+            0, width - 1, height, series_y, series_iv, series_own, min_share_gap,
+        )
 
     refine_steep_strokes(series_y, series_iv)
 
-    # Shared endpoints: a series that tracked to within ENDPOINT_SNAP_FRACTION of
-    # the outermost tracked column is snapped out to it, so converging curves end
-    # together. Series that fall short by more than that are left to terminate at
-    # their own last real column instead of being flat-extrapolated to the edge.
-    assigned_per_series = [
-        np.flatnonzero(~np.isnan(series_y[c])) for c in range(num_series)
-    ]
+    # Start/stop: a series' real span is the range backed by runs of its OWN
+    # style. Matches outside that range come from long-gap recovery onto a
+    # neighbouring curve (e.g. a dashed curve that starts later / ends earlier
+    # than the solid one: past its real end only solid runs exist), so clip
+    # each series' assigned columns to its own-style extremes before deciding
+    # endpoints.
+    assigned_per_series = []
+    for c in range(num_series):
+        assigned = np.flatnonzero(~np.isnan(series_y[c]))
+        own_cols = np.flatnonzero(series_own[c])
+        if assigned.size and own_cols.size:
+            assigned = assigned[(assigned >= own_cols[0]) & (assigned <= own_cols[-1])]
+        assigned_per_series.append(assigned)
+
+    # Shared endpoints: a series that tracked to near the outermost tracked
+    # column is snapped out to it, so converging curves end together. The snap
+    # reach scales with the series' own sampling pitch (median gap between
+    # matched columns): a solid line may only bridge a few columns, while a
+    # dotted line may bridge a few dot pitches - but a dotted curve that truly
+    # starts later/ends earlier than its neighbour is NOT dragged to the frame.
     non_empty = [a for a in assigned_per_series if a.size]
     common_first = int(min((a[0] for a in non_empty), default=0))
     common_last = int(max((a[-1] for a in non_empty), default=width - 1))
@@ -687,9 +858,13 @@ def cluster_series(gray_image: np.ndarray, num_series: int, marker_cols=None):
         sample_y = np.clip(np.round(row[assigned]).astype(int), 0, height - 1)
         intensity_center = float(gray_image[sample_y, assigned].mean())
 
+        gaps_between = np.diff(assigned)
+        median_gap = float(np.median(gaps_between)) if gaps_between.size else 1.0
+        snap_reach = min(snap_tol, int(round(max(2.0, ENDPOINT_GAP_FACTOR * median_gap))))
+
         first_col, last_col = int(assigned[0]), int(assigned[-1])
-        lo_col = common_first if (first_col - common_first) <= snap_tol else first_col
-        hi_col = common_last if (common_last - last_col) <= snap_tol else last_col
+        lo_col = common_first if (first_col - common_first) <= snap_reach else first_col
+        hi_col = common_last if (common_last - last_col) <= snap_reach else last_col
 
         filled = np.interp(np.arange(width), assigned, row[assigned])
         # Emit points only within this series' (snapped) tracked span, skipping

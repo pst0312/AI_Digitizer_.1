@@ -12,7 +12,7 @@
   "num_series": 4,
   "vision_extracted": true,
   "manually_entered": true,
-  "needs_manual_review": false,
+  "needs_manual_review": true,
   "collection_mode": 2,
   "axis_x_label": "frequency",
   "axis_x_units": "cm^-1",
@@ -34,35 +34,35 @@
   "series": [
     {
       "id": 1,
-      "style": "solid",
-      "intensity_center": 1.04,
-      "point_count": 738,
-      "coverage_ratio": 0.9801,
-      "csv_path": "digitized/page5.2_series_1_solid.csv"
+      "style": "dashed",
+      "intensity_center": 8.64,
+      "point_count": 472,
+      "coverage_ratio": 0.6268,
+      "csv_path": "digitized/page5.2_series_1_dashed.csv"
     },
     {
       "id": 2,
       "style": "solid",
-      "intensity_center": 8.17,
-      "point_count": 718,
-      "coverage_ratio": 0.9535,
+      "intensity_center": 2.16,
+      "point_count": 708,
+      "coverage_ratio": 0.9402,
       "csv_path": "digitized/page5.2_series_2_solid.csv"
     },
     {
       "id": 3,
       "style": "solid",
-      "intensity_center": 6.34,
-      "point_count": 644,
-      "coverage_ratio": 0.8552,
+      "intensity_center": 1.75,
+      "point_count": 582,
+      "coverage_ratio": 0.7729,
       "csv_path": "digitized/page5.2_series_3_solid.csv"
     },
     {
       "id": 4,
-      "style": "solid",
-      "intensity_center": 9.68,
-      "point_count": 632,
-      "coverage_ratio": 0.8393,
-      "csv_path": "digitized/page5.2_series_4_solid.csv"
+      "style": "dashed",
+      "intensity_center": 11.79,
+      "point_count": 584,
+      "coverage_ratio": 0.7756,
+      "csv_path": "digitized/page5.2_series_4_dashed.csv"
     }
   ]
 }

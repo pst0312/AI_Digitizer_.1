@@ -40,16 +40,16 @@
       "id": 1,
       "style": "solid",
       "intensity_center": 0.0,
-      "point_count": 549,
-      "coverage_ratio": 0.9821,
+      "point_count": 547,
+      "coverage_ratio": 0.9785,
       "csv_path": "digitized/page6.2_series_1_solid.csv"
     },
     {
       "id": 2,
       "style": "dashed",
-      "intensity_center": 6.29,
-      "point_count": 527,
-      "coverage_ratio": 0.9428,
+      "intensity_center": 11.85,
+      "point_count": 452,
+      "coverage_ratio": 0.8086,
       "csv_path": "digitized/page6.2_series_2_dashed.csv"
     }
   ]
