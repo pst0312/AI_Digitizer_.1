@@ -10,7 +10,7 @@ import numpy as np
 from PIL import Image
 
 
-DEFAULT_ROOT = Path(__file__).parent / "output_pdf"
+DEFAULT_ROOT = Path(__file__).resolve().parent.parent / "output_pdf"
 
 # Run/tracking parameters for geometric series separation
 RUN_GAP_PX = 2                     # vertical gap that splits one column run into two

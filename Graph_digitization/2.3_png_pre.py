@@ -20,7 +20,7 @@ MIN_COMPONENT_AREA = 12
 MAX_SKEW_ANGLE_DEG = 15                 
 SKEW_METHOD_DISAGREEMENT_THRESHOLD_DEG = 5 
 
-SCRIPT_DIR = Path(__file__).resolve().parent
+SCRIPT_DIR = Path(__file__).resolve().parent.parent
 DEFAULT_OUTPUT_ROOT = SCRIPT_DIR / "output_pdf"
 
 STAGE_NAMES = [

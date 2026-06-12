@@ -8,7 +8,7 @@ import re
 from pathlib import Path
 
 
-DEFAULT_ROOT = Path(__file__).parent / "output_pdf"
+DEFAULT_ROOT = Path(__file__).resolve().parent.parent / "output_pdf"
 
 SERIES_CSV_PATTERN = re.compile(r"^(.+)_series_\d+_(?:solid|dashed)\.csv$")
 VERTICAL_SHIFT_PATTERN = re.compile(r"^(.+)_vertical_shift\.csv$")

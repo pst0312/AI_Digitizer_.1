@@ -43,8 +43,8 @@ def parse_args():
     parser.add_argument(
         "root",
         nargs="?",
-        default="output_pdf",
-        help="Root folder containing output_pdf/ structure (default: output_pdf)",
+        default=None,
+        help="Root folder containing output_pdf/ structure (default: output_pdf at the repo root)",
     )
     return parser.parse_args()
 
@@ -276,7 +276,11 @@ def process_pair(png_path: Path, json_path: Path):
 
 def main():
     args = parse_args()
-    root_dir = Path(args.root).resolve()
+    root_dir = (
+        Path(args.root).resolve()
+        if args.root
+        else Path(__file__).resolve().parent.parent / "output_pdf"
+    )
     if not root_dir.is_dir():
         raise SystemExit(f"Root directory not found: {root_dir}")
 

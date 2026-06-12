@@ -28,7 +28,7 @@ def parse_args():
         "root_dir",
         nargs="?",
         default=None,
-        help="Path to the root output_pdf/ directory (default: output_pdf relative to this script)",
+        help="Path to the root output_pdf/ directory (default: output_pdf at the repo root)",
     )
     parser.add_argument(
         "--single",
@@ -288,9 +288,9 @@ def resolve_single_path(single_arg, root_dir):
 
 def main():
     args = parse_args()
-    script_dir = os.path.dirname(os.path.abspath(__file__))
+    repo_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
     root_dir = os.path.abspath(
-        args.root_dir if args.root_dir else os.path.join(script_dir, "output_pdf")
+        args.root_dir if args.root_dir else os.path.join(repo_root, "output_pdf")
     )
     if not os.path.isdir(root_dir):
         raise SystemExit(f"Root directory not found: {root_dir}")

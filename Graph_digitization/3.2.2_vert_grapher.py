@@ -9,7 +9,7 @@ from pathlib import Path
 import numpy as np
 
 
-DEFAULT_ROOT = Path(__file__).parent / "output_pdf"
+DEFAULT_ROOT = Path(__file__).resolve().parent.parent / "output_pdf"
 
 
 def parse_args():

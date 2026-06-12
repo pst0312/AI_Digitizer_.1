@@ -155,7 +155,7 @@ def main():
     parser.add_argument("--review", action="store_true", help="Process all graphs even if already vision_extracted")
     args = parser.parse_args()
 
-    base = Path(args.root) if args.root else (Path(__file__).parent / "output_pdf")
+    base = Path(args.root) if args.root else (Path(__file__).resolve().parent.parent / "output_pdf")
     base = base.resolve()
 
     mode = prompt_mode()
