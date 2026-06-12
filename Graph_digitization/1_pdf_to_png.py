@@ -79,8 +79,8 @@ def resolve_input_pdf(input_pdf_filename: str | None = None) -> Path:
 
 def prepare_output_folders(source_pdf: Path) -> tuple[Path, Path]:
     """Create output root and paper folder for all generated files."""
-    script_dir = Path(__file__).resolve().parent
-    output_root = (script_dir / DEFAULT_OUTPUT_ROOT).resolve()
+    repo_root = Path(__file__).resolve().parent.parent
+    output_root = (repo_root / DEFAULT_OUTPUT_ROOT).resolve()
     paper_folder = output_root / source_pdf.stem
     paper_folder.mkdir(parents=True, exist_ok=True)
     return output_root, paper_folder

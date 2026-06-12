@@ -3,6 +3,8 @@
 import argparse
 import json
 import os
+from pathlib import Path
+
 from PIL import Image
 
 
@@ -13,8 +15,8 @@ def parse_args():
     parser.add_argument(
         "root_dir",
         nargs="?",
-        default="output_pdf",
-        help="Path to the root output_pdf/ directory (default: output_pdf)",
+        default=None,
+        help="Path to the root output_pdf/ directory (default: output_pdf at the repo root)",
     )
     return parser.parse_args()
 
@@ -59,7 +61,11 @@ def process_graphs_folder(graphs_path, root_dir, counters):
 
 def main():
     args = parse_args()
-    root_dir = os.path.abspath(args.root_dir)
+    root_dir = (
+        os.path.abspath(args.root_dir)
+        if args.root_dir
+        else str(Path(__file__).resolve().parent.parent / "output_pdf")
+    )
 
     counters = {
         "graphs_folders": 0,

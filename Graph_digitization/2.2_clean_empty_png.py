@@ -1,18 +1,19 @@
 import os
 from pathlib import Path
 
-def cleanup_empty_folders(root_dir_name="output_pdf"):
+def cleanup_empty_folders(root_path=None):
     """
-    Scans the output directory and removes any 'graphs' or 'tables' 
+    Scans the output directory and removes any 'graphs' or 'tables'
     folders that are completely empty to keep the workspace clean.
     """
-    root_path = Path.cwd() / root_dir_name
-    
+    if root_path is None:
+        root_path = Path(__file__).resolve().parent.parent / "output_pdf"
+
     if not root_path.exists():
-        print(f"[!] Target directory '{root_dir_name}' does not exist in the current path.")
+        print(f"[!] Target directory '{root_path}' does not exist.")
         return
 
-    print(f" Scanning '{root_dir_name}' for empty folders...\n")
+    print(f" Scanning '{root_path}' for empty folders...\n")
     removed_graphs_count = 0
     removed_tables_count = 0
 
@@ -49,5 +50,4 @@ def cleanup_empty_folders(root_dir_name="output_pdf"):
     print("="*40 + "\n")
 
 if __name__ == "__main__":
-    # Runs assuming 'output_pdf' is in the same directory as this script
     cleanup_empty_folders()

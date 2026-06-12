@@ -192,10 +192,19 @@ def traverse_and_review(root: Path) -> None:
 
 def main():
     parser = argparse.ArgumentParser(description="Interactive graph review for output_pdf structure")
-    parser.add_argument("root", nargs="?", default="output_pdf", help="Root output_pdf folder (default: ./output_pdf)")
+    parser.add_argument(
+        "root",
+        nargs="?",
+        default=None,
+        help="Root output_pdf folder (default: output_pdf at the repo root)",
+    )
     args = parser.parse_args()
 
-    root = Path(args.root).resolve()
+    root = (
+        Path(args.root).resolve()
+        if args.root
+        else Path(__file__).resolve().parent.parent / "output_pdf"
+    )
     traverse_and_review(root)
 
 
