@@ -28,16 +28,16 @@
       "id": 1,
       "style": "solid",
       "intensity_center": 0.0,
-      "point_count": 405,
-      "coverage_ratio": 0.8672,
+      "point_count": 463,
+      "coverage_ratio": 0.9914,
       "csv_path": "digitized/page6.4_series_1_solid.csv"
     },
     {
       "id": 2,
       "style": "solid",
-      "intensity_center": 0.0,
-      "point_count": 427,
-      "coverage_ratio": 0.9143,
+      "intensity_center": 0.6,
+      "point_count": 424,
+      "coverage_ratio": 0.9079,
       "csv_path": "digitized/page6.4_series_2_solid.csv"
     }
   ]

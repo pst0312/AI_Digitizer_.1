@@ -27,7 +27,7 @@
     {
       "id": 1,
       "style": "solid",
-      "intensity_center": 0.47,
+      "intensity_center": 0.0,
       "point_count": 548,
       "coverage_ratio": 0.9821,
       "csv_path": "digitized/page6.2_series_1_solid.csv"
@@ -35,9 +35,9 @@
     {
       "id": 2,
       "style": "dashed",
-      "intensity_center": 0.58,
-      "point_count": 443,
-      "coverage_ratio": 0.7939,
+      "intensity_center": 6.3,
+      "point_count": 526,
+      "coverage_ratio": 0.9427,
       "csv_path": "digitized/page6.2_series_2_dashed.csv"
     }
   ]

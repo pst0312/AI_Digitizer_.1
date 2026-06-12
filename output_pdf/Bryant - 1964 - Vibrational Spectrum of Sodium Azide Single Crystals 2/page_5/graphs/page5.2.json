@@ -23,17 +23,17 @@
     {
       "id": 1,
       "style": "solid",
-      "intensity_center": 1.05,
-      "point_count": 730,
-      "coverage_ratio": 0.9669,
+      "intensity_center": 16.21,
+      "point_count": 755,
+      "coverage_ratio": 1.0,
       "csv_path": "digitized/page5.2_series_1_solid.csv"
     },
     {
       "id": 2,
       "style": "dashed",
-      "intensity_center": 2.02,
-      "point_count": 632,
-      "coverage_ratio": 0.8371,
+      "intensity_center": 41.5,
+      "point_count": 639,
+      "coverage_ratio": 0.8464,
       "csv_path": "digitized/page5.2_series_2_dashed.csv"
     }
   ]

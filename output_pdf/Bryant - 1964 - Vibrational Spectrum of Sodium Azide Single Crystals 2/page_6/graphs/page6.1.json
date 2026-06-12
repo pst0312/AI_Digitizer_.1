@@ -23,33 +23,33 @@
     {
       "id": 1,
       "style": "solid",
-      "intensity_center": 0.35,
-      "point_count": 733,
-      "coverage_ratio": 0.9197,
+      "intensity_center": 5.07,
+      "point_count": 754,
+      "coverage_ratio": 0.946,
       "csv_path": "digitized/page6.1_series_1_solid.csv"
     },
     {
       "id": 2,
       "style": "solid",
-      "intensity_center": 0.66,
-      "point_count": 773,
-      "coverage_ratio": 0.9699,
+      "intensity_center": 1.31,
+      "point_count": 777,
+      "coverage_ratio": 0.9749,
       "csv_path": "digitized/page6.1_series_2_solid.csv"
     },
     {
       "id": 3,
       "style": "solid",
-      "intensity_center": 0.99,
-      "point_count": 771,
-      "coverage_ratio": 0.9674,
+      "intensity_center": 1.63,
+      "point_count": 784,
+      "coverage_ratio": 0.9837,
       "csv_path": "digitized/page6.1_series_3_solid.csv"
     },
     {
       "id": 4,
       "style": "solid",
-      "intensity_center": 0.33,
-      "point_count": 779,
-      "coverage_ratio": 0.9774,
+      "intensity_center": 2.64,
+      "point_count": 772,
+      "coverage_ratio": 0.9686,
       "csv_path": "digitized/page6.1_series_4_solid.csv"
     }
   ]

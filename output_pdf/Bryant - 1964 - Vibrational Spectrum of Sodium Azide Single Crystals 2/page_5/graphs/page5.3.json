@@ -26,11 +26,11 @@
   "series": [
     {
       "id": 1,
-      "style": "solid",
-      "intensity_center": 0.69,
-      "point_count": 736,
-      "coverage_ratio": 0.9212,
-      "csv_path": "digitized/page5.3_series_1_solid.csv"
+      "style": "dashed",
+      "intensity_center": 9.67,
+      "point_count": 738,
+      "coverage_ratio": 0.9237,
+      "csv_path": "digitized/page5.3_series_1_dashed.csv"
     },
     {
       "id": 2,
