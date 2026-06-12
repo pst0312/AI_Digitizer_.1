@@ -25,13 +25,13 @@ from doclayout_yolo import YOLOv10
 
 def load_model():
     """Load the local DocLayout-YOLO model."""
-    current_dir = Path(__file__).resolve().parent
+    repo_root = Path(__file__).resolve().parent.parent
     model_filename = "doclayout_yolo_docstructbench_imgsz1024.pt"
-    model_path = current_dir / model_filename
+    model_path = repo_root / model_filename
 
     if not model_path.exists():
         raise FileNotFoundError(
-            f"Could not find '{model_filename}' in {current_dir}. "
+            f"Could not find '{model_filename}' in {repo_root}. "
             f"Please download it from Hugging Face and place it here."
         )
 
@@ -58,11 +58,11 @@ def find_page_png(page_folder: Path) -> Path | None:
 
 def process_output_pdf_nested():
     """Traverse output_pdf directory and extract graphs from each page."""
-    current_dir = Path(__file__).resolve().parent
-    output_pdf_root = current_dir / "output_pdf"
+    repo_root = Path(__file__).resolve().parent.parent
+    output_pdf_root = repo_root / "output_pdf"
 
     if not output_pdf_root.exists():
-        print(f"[!] Directory '{output_pdf_root.name}' not found in {current_dir}")
+        print(f"[!] Directory '{output_pdf_root.name}' not found in {repo_root}")
         return
 
     model = load_model()
