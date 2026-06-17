@@ -1,0 +1,19 @@
+ Scanning '/Users/peterterekhov/Documents/Rice project/AI_Digitizer_.1/output_pdf' for empty folders...
+
+ Removed empty folder: output_pdf/Bryant - 1964 - Vibrational Spectrum of Sodium Azide Single Crystals 2/page_9/graphs
+ Removed empty folder: output_pdf/Bryant - 1964 - Vibrational Spectrum of Sodium Azide Single Crystals 2/page_7/graphs
+ Removed empty folder: output_pdf/Bryant - 1964 - Vibrational Spectrum of Sodium Azide Single Crystals 2/page_1/graphs
+ Removed empty folder: output_pdf/Bryant - 1964 - Vibrational Spectrum of Sodium Azide Single Crystals 2/page_8/graphs
+ Removed empty folder: output_pdf/Bryant - 1964 - Vibrational Spectrum of Sodium Azide Single Crystals 2/page_4/graphs
+ Removed empty folder: output_pdf/Bryant - 1964 - Vibrational Spectrum of Sodium Azide Single Crystals 2/page_3/graphs
+ Removed empty folder: output_pdf/Bryant - 1964 - Vibrational Spectrum of Sodium Azide Single Crystals 2/page_10/graphs
+ Removed empty folder: output_pdf/Bryant - 1964 - Vibrational Spectrum of Sodium Azide Single Crystals 2/page_2/graphs
+
+========================================
+ CLEANUP SUMMARY
+========================================
+ Empty 'graphs' folders removed: 8
+ Empty 'tables' folders removed: 0
+ Total folders cleared: 8
+========================================
+

@@ -1,0 +1,30 @@
+
+Paper: Bryant - 1964 - Vibrational Spectrum of Sodium Azide Single Crystals 2
+ Reviewing page_1 (1 graph(s))
+  Deleted page_1/graphs/page1.1.png (not a graph or table) - The image shows a logo or an icon, which is not a graph or table.
+ Reviewing page_3 (2 graph(s))
+  Moved page_3/graphs/page3.1.png -> page_3/tables/page3.1.png (table) - The image displays a structured layout with rows and columns used to organize data, which is characteristic of a table.
+  Deleted page_3/graphs/page3.2.png (not a graph or table) - The image depicts a molecular or crystal structure diagram, not a graph or table.
+ Reviewing page_4 (3 graph(s))
+  Moved page_4/graphs/page4.1.png -> page_4/tables/page4.1.png (table) - The image contains a structured layout with rows and columns, displaying data in a tabular format.
+  Moved page_4/graphs/page4.2.png -> page_4/tables/page4.2.png (table) - The image is a structured layout with rows and columns, typical of a data table.
+  Moved page_4/graphs/page4.3.png -> page_4/tables/page4.3.png (table) - The image displays a structured arrangement of data with rows and columns, indicating it is a table.
+ Reviewing page_5 (3 graph(s))
+  Deleted page_5/graphs/page5.1.png (not a graph or table) - The image contains schematic diagrams or illustrations, not a graph or table suitable for digitization.
+  Kept page_5/graphs/page5.2.png (graph) - The image displays plotted data with axes labeled 'Energy Transmitted' and 'Frequency', indicating it is a graph.
+  Kept page_5/graphs/page5.3.png (graph) - The image shows a plotted chart with axes labeled 'Energy Transmitted' and 'Frequency', suitable for data analysis.
+ Reviewing page_6 (4 graph(s))
+  Kept page_6/graphs/page6.1.png (graph) - The image shows a plotted chart with axes labeled 'ENERGY TRANSMITTED' and 'FREQUENCY (cm^-1)', indicating it's a graph with data series.
+  Kept page_6/graphs/page6.2.png (graph) - The image shows a plotted chart with axes labeled 'INTENSITY' and 'Δν(CM⁻¹)', indicating data series suitable for digitization.
+  Kept page_6/graphs/page6.3.png (graph) - The image shows a plotted chart with axes labeled as 'ENERGY TRANSMITTED' and 'FREQUENCY (cm⁻¹)', and it contains data series.
+  Kept page_6/graphs/page6.4.png (graph) - The image shows a plotted chart with axes, labels, and data series indicating infrared spectra.
+ Reviewing page_7 (2 graph(s))
+  Moved page_7/graphs/page7.1.png -> page_7/tables/page7.1.png (table) - The image displays a structured layout with rows and columns, indicating it is a data table presenting information on vibrational absorption.
+  Moved page_7/graphs/page7.2.png -> page_7/tables/page7.2.png (table) - The image contains a structured layout with rows and columns, typical of a data table format.
+
+Summary:
+  Total reviewed: 15
+  Graphs kept:    6
+  Tables moved:   6
+  Deleted:        3
+  Failed:         0
