@@ -3,20 +3,22 @@
   "image_width_px": 1015,
   "image_height_px": 618,
   "image_measured": true,
+  "plot_bounds": {
+    "x1": 133,
+    "y1": 31,
+    "x2": 943,
+    "y2": 541
+  },
+  "plot_bounds_source": "opencv",
+  "axis_crop_written": true,
   "axis_x_label": "FREQUENCY",
   "axis_y_label": "ENERGY TRANSMITTED",
-  "axis_x_units": "cm^-1",
+  "axis_x_units": "cm\u207b\u00b9",
   "axis_y_units": "",
   "axis_x_origin": 3800.0,
   "axis_x_final": 3100.0,
   "axis_y_origin": 0.0,
   "axis_y_final": 100.0,
-  "plot_bounds": {
-    "x1": 65,
-    "y1": 40,
-    "x2": 900,
-    "y2": 500
-  },
   "num_series": 2,
   "axis_x_min": 3800.0,
   "axis_x_max": 3100.0,
@@ -24,31 +26,35 @@
   "axis_y_max": 100.0,
   "vision_extracted": true,
   "needs_manual_review": false,
-  "vertical_markers_px": [
-    134
-  ],
-  "vertical_markers_relative_x": [
-    0.0826
-  ],
   "digitized": true,
   "digitization_method": "intensity_cluster_skeleton",
   "axis_scale": "relative",
+  "vertical_markers_px": [],
+  "vertical_markers_relative_x": [],
   "series": [
     {
       "id": 1,
-      "style": "dashed",
-      "intensity_center": 4.0,
-      "point_count": 701,
-      "coverage_ratio": 0.8395,
-      "csv_path": "digitized/page6.1_series_1_dashed.csv"
+      "style": "solid",
+      "intensity_center": 0.0,
+      "point_count": 809,
+      "coverage_ratio": 0.9988,
+      "csv_path": "digitized/page6.1_series_1_solid.csv"
     },
     {
       "id": 2,
       "style": "solid",
-      "intensity_center": 0.7,
-      "point_count": 733,
-      "coverage_ratio": 0.8778,
+      "intensity_center": 6.68,
+      "point_count": 802,
+      "coverage_ratio": 0.9901,
       "csv_path": "digitized/page6.1_series_2_solid.csv"
+    },
+    {
+      "id": 3,
+      "style": "solid",
+      "intensity_center": 1.27,
+      "point_count": 800,
+      "coverage_ratio": 0.9877,
+      "csv_path": "digitized/page6.1_series_3_solid.csv"
     }
   ]
 }

@@ -1,0 +1,9 @@
+Failed to process page6.3.png after 3 attempts: could not convert string to float: ''
+Failed to process page6.4.png after 3 attempts: could not convert string to float: ''
+Failed to process page5.3.png after 3 attempts: could not convert string to float: ''
+Processing complete.
+Total PNGs found in graphs/ folders: 6
+Skipped (not measured): 0
+Skipped (already done): 0
+Processed: 3
+Failed: 3

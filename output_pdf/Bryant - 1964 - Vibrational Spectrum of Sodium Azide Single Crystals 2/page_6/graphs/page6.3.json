@@ -3,52 +3,14 @@
   "image_width_px": 997,
   "image_height_px": 398,
   "image_measured": true,
-  "axis_x_label": "FREQUENCY",
-  "axis_y_label": "ENERGY TRANSMITTED",
-  "axis_x_units": "cm\u207b\u00b9",
-  "axis_y_units": "",
-  "axis_x_origin": 1900.0,
-  "axis_x_final": 2500.0,
-  "axis_y_origin": 0.0,
-  "axis_y_final": 100.0,
   "plot_bounds": {
-    "x1": 84,
-    "y1": 41,
-    "x2": 366,
-    "y2": 153
+    "x1": 138,
+    "y1": 24,
+    "x2": 949,
+    "y2": 303
   },
-  "num_series": 2,
-  "axis_x_min": 1900.0,
-  "axis_x_max": 2500.0,
-  "axis_y_min": 0.0,
-  "axis_y_max": 100.0,
-  "vision_extracted": true,
-  "needs_manual_review": false,
-  "vertical_markers_px": [
-    138
-  ],
-  "vertical_markers_relative_x": [
-    0.1915
-  ],
-  "digitized": true,
-  "digitization_method": "intensity_cluster_skeleton",
-  "axis_scale": "relative",
-  "series": [
-    {
-      "id": 1,
-      "style": "dashed",
-      "intensity_center": 4.72,
-      "point_count": 216,
-      "coverage_ratio": 0.766,
-      "csv_path": "digitized/page6.3_series_1_dashed.csv"
-    },
-    {
-      "id": 2,
-      "style": "solid",
-      "intensity_center": 0.0,
-      "point_count": 216,
-      "coverage_ratio": 0.766,
-      "csv_path": "digitized/page6.3_series_2_solid.csv"
-    }
-  ]
+  "plot_bounds_source": "opencv",
+  "axis_crop_written": true,
+  "vision_extracted": false,
+  "needs_manual_review": true
 }

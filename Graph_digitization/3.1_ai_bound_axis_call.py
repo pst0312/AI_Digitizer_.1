@@ -225,6 +225,24 @@ def process_png_file(png_path, client, summary):
         summary["failed"] += 1
         return
 
+    # Stage 3.0.5 detects plot_bounds with OpenCV (authoritative) and writes a
+    # bounds-plus-margin crop into a sibling axis_crops/ folder. Send that focused
+    # crop to the model so it reads axis labels/limits and the series count off the
+    # plot itself, and KEEP the OpenCV bounds rather than the model's pixel guess.
+    # The original graphs/ PNG is never modified; digitization still uses it.
+    cv_bounds = (
+        metadata.get("plot_bounds")
+        if metadata.get("plot_bounds_source") == "opencv"
+        else None
+    )
+    request_image = png_path
+    if metadata.get("axis_crop_written") is True:
+        crop_path = os.path.join(
+            os.path.dirname(os.path.dirname(png_path)), "axis_crops", filename
+        )
+        if os.path.isfile(crop_path):
+            request_image = crop_path
+
     # Attempt the API call and validate plot_bounds. If invalid, retry up to 3 times.
     max_attempts = 3
     payload = None
@@ -233,11 +251,20 @@ def process_png_file(png_path, client, summary):
             prompt_text = build_user_prompt(
                 None if attempt == 1 else get_retry_message(payload, image_width, image_height)
             )
-            payload = send_vision_request(client, png_path, prompt_text)
+            payload = send_vision_request(client, request_image, prompt_text)
+
+            # OpenCV owns the crop geometry: drop the model's crop-relative bounds
+            # and substitute the detected ones before validating, so a model guess
+            # cannot fail validation or override the real pixel coordinates.
+            if cv_bounds is not None:
+                payload["plot_bounds"] = cv_bounds
             validate_vision_payload(payload, image_width, image_height)
 
             # Preserve existing measurement fields and add vision extraction results.
             metadata.update(payload)
+            if cv_bounds is not None:
+                metadata["plot_bounds"] = cv_bounds
+                metadata["plot_bounds_source"] = "opencv"
             metadata["vision_extracted"] = True
             metadata["needs_manual_review"] = False
             write_json(json_path, metadata)

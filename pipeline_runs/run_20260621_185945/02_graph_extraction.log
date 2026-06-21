@@ -1,0 +1,71 @@
+Loading local DocLayout-YOLO model...
+
+Processing nested structure in output_pdf/
+
+Processing paper: Bryant - 1964 - Vibrational Spectrum of Sodium Azide Single Crystals 2/
+  Analyzing page_1_Bryant - 1964 - Vibrational Spectrum of Sodium Azide Single Crystals 2.png...
+
+image 1/1 /Users/peterterekhov/Documents/Rice project/AI_Digitizer_.1/output_pdf/Bryant - 1964 - Vibrational Spectrum of Sodium Azide Single Crystals 2/page_1/page_1_Bryant - 1964 - Vibrational Spectrum of Sodium Azide Single Crystals 2.png: 1024x736 4 titles, 10 plain texts, 8 abandons, 1 figure, 805.6ms
+Speed: 13.2ms preprocess, 805.6ms inference, 7.4ms postprocess per image at shape (1, 3, 1024, 736)
+    -> Extracted figure to page_1/graphs/page1.1.png
+    -> Found 1 graph(s) on page_1_Bryant - 1964 - Vibrational Spectrum of Sodium Azide Single Crystals 2.png.
+  Analyzing page_10_Bryant - 1964 - Vibrational Spectrum of Sodium Azide Single Crystals 2.png...
+
+image 1/1 /Users/peterterekhov/Documents/Rice project/AI_Digitizer_.1/output_pdf/Bryant - 1964 - Vibrational Spectrum of Sodium Azide Single Crystals 2/page_10/page_10_Bryant - 1964 - Vibrational Spectrum of Sodium Azide Single Crystals 2.png: 1024x768 4 titles, 19 plain texts, 7 abandons, 7 isolate_formulas, 7 formula_captions, 738.6ms
+Speed: 4.1ms preprocess, 738.6ms inference, 0.5ms postprocess per image at shape (1, 3, 1024, 768)
+    -> No graphs or figures detected on page_10_Bryant - 1964 - Vibrational Spectrum of Sodium Azide Single Crystals 2.png.
+  Analyzing page_2_Bryant - 1964 - Vibrational Spectrum of Sodium Azide Single Crystals 2.png...
+
+image 1/1 /Users/peterterekhov/Documents/Rice project/AI_Digitizer_.1/output_pdf/Bryant - 1964 - Vibrational Spectrum of Sodium Azide Single Crystals 2/page_2/page_2_Bryant - 1964 - Vibrational Spectrum of Sodium Azide Single Crystals 2.png: 1024x768 4 titles, 9 plain texts, 6 abandons, 1 isolate_formula, 1 formula_caption, 712.6ms
+Speed: 3.5ms preprocess, 712.6ms inference, 0.5ms postprocess per image at shape (1, 3, 1024, 768)
+    -> No graphs or figures detected on page_2_Bryant - 1964 - Vibrational Spectrum of Sodium Azide Single Crystals 2.png.
+  Analyzing page_3_Bryant - 1964 - Vibrational Spectrum of Sodium Azide Single Crystals 2.png...
+
+image 1/1 /Users/peterterekhov/Documents/Rice project/AI_Digitizer_.1/output_pdf/Bryant - 1964 - Vibrational Spectrum of Sodium Azide Single Crystals 2/page_3/page_3_Bryant - 1964 - Vibrational Spectrum of Sodium Azide Single Crystals 2.png: 1024x768 3 titles, 6 plain texts, 5 abandons, 1 figure, 1 figure_caption, 1 table, 1 table_caption, 1 table_footnote, 1 isolate_formula, 1 formula_caption, 685.6ms
+Speed: 3.3ms preprocess, 685.6ms inference, 0.3ms postprocess per image at shape (1, 3, 1024, 768)
+    -> Extracted table to page_3/graphs/page3.1.png
+    -> Extracted figure to page_3/graphs/page3.2.png
+    -> Found 2 graph(s) on page_3_Bryant - 1964 - Vibrational Spectrum of Sodium Azide Single Crystals 2.png.
+  Analyzing page_4_Bryant - 1964 - Vibrational Spectrum of Sodium Azide Single Crystals 2.png...
+
+image 1/1 /Users/peterterekhov/Documents/Rice project/AI_Digitizer_.1/output_pdf/Bryant - 1964 - Vibrational Spectrum of Sodium Azide Single Crystals 2/page_4/page_4_Bryant - 1964 - Vibrational Spectrum of Sodium Azide Single Crystals 2.png: 1024x768 1 title, 8 plain texts, 2 abandons, 3 tables, 3 table_captions, 1 table_footnote, 706.1ms
+Speed: 3.4ms preprocess, 706.1ms inference, 0.5ms postprocess per image at shape (1, 3, 1024, 768)
+    -> Extracted table to page_4/graphs/page4.1.png
+    -> Extracted table to page_4/graphs/page4.2.png
+    -> Extracted table to page_4/graphs/page4.3.png
+    -> Found 3 graph(s) on page_4_Bryant - 1964 - Vibrational Spectrum of Sodium Azide Single Crystals 2.png.
+  Analyzing page_5_Bryant - 1964 - Vibrational Spectrum of Sodium Azide Single Crystals 2.png...
+
+image 1/1 /Users/peterterekhov/Documents/Rice project/AI_Digitizer_.1/output_pdf/Bryant - 1964 - Vibrational Spectrum of Sodium Azide Single Crystals 2/page_5/page_5_Bryant - 1964 - Vibrational Spectrum of Sodium Azide Single Crystals 2.png: 1024x768 3 plain texts, 2 abandons, 3 figures, 3 figure_captions, 689.2ms
+Speed: 3.1ms preprocess, 689.2ms inference, 0.4ms postprocess per image at shape (1, 3, 1024, 768)
+    -> Extracted figure to page_5/graphs/page5.1.png
+    -> Extracted figure to page_5/graphs/page5.2.png
+    -> Extracted figure to page_5/graphs/page5.3.png
+    -> Found 3 graph(s) on page_5_Bryant - 1964 - Vibrational Spectrum of Sodium Azide Single Crystals 2.png.
+  Analyzing page_6_Bryant - 1964 - Vibrational Spectrum of Sodium Azide Single Crystals 2.png...
+
+image 1/1 /Users/peterterekhov/Documents/Rice project/AI_Digitizer_.1/output_pdf/Bryant - 1964 - Vibrational Spectrum of Sodium Azide Single Crystals 2/page_6/page_6_Bryant - 1964 - Vibrational Spectrum of Sodium Azide Single Crystals 2.png: 1024x768 2 titles, 3 plain texts, 2 abandons, 4 figures, 4 figure_captions, 693.7ms
+Speed: 3.4ms preprocess, 693.7ms inference, 0.4ms postprocess per image at shape (1, 3, 1024, 768)
+    -> Extracted figure to page_6/graphs/page6.1.png
+    -> Extracted figure to page_6/graphs/page6.2.png
+    -> Extracted figure to page_6/graphs/page6.3.png
+    -> Extracted figure to page_6/graphs/page6.4.png
+    -> Found 4 graph(s) on page_6_Bryant - 1964 - Vibrational Spectrum of Sodium Azide Single Crystals 2.png.
+  Analyzing page_7_Bryant - 1964 - Vibrational Spectrum of Sodium Azide Single Crystals 2.png...
+
+image 1/1 /Users/peterterekhov/Documents/Rice project/AI_Digitizer_.1/output_pdf/Bryant - 1964 - Vibrational Spectrum of Sodium Azide Single Crystals 2/page_7/page_7_Bryant - 1964 - Vibrational Spectrum of Sodium Azide Single Crystals 2.png: 1024x768 3 plain texts, 3 abandons, 2 tables, 1 table_caption, 820.8ms
+Speed: 3.4ms preprocess, 820.8ms inference, 0.5ms postprocess per image at shape (1, 3, 1024, 768)
+    -> Extracted table to page_7/graphs/page7.1.png
+    -> Extracted table to page_7/graphs/page7.2.png
+    -> Found 2 graph(s) on page_7_Bryant - 1964 - Vibrational Spectrum of Sodium Azide Single Crystals 2.png.
+  Analyzing page_8_Bryant - 1964 - Vibrational Spectrum of Sodium Azide Single Crystals 2.png...
+
+image 1/1 /Users/peterterekhov/Documents/Rice project/AI_Digitizer_.1/output_pdf/Bryant - 1964 - Vibrational Spectrum of Sodium Azide Single Crystals 2/page_8/page_8_Bryant - 1964 - Vibrational Spectrum of Sodium Azide Single Crystals 2.png: 1024x768 7 plain texts, 2 abandons, 764.3ms
+Speed: 3.3ms preprocess, 764.3ms inference, 0.3ms postprocess per image at shape (1, 3, 1024, 768)
+    -> No graphs or figures detected on page_8_Bryant - 1964 - Vibrational Spectrum of Sodium Azide Single Crystals 2.png.
+  Analyzing page_9_Bryant - 1964 - Vibrational Spectrum of Sodium Azide Single Crystals 2.png...
+
+image 1/1 /Users/peterterekhov/Documents/Rice project/AI_Digitizer_.1/output_pdf/Bryant - 1964 - Vibrational Spectrum of Sodium Azide Single Crystals 2/page_9/page_9_Bryant - 1964 - Vibrational Spectrum of Sodium Azide Single Crystals 2.png: 1024x768 1 title, 5 plain texts, 3 abandons, 698.0ms
+Speed: 3.6ms preprocess, 698.0ms inference, 0.6ms postprocess per image at shape (1, 3, 1024, 768)
+    -> No graphs or figures detected on page_9_Bryant - 1964 - Vibrational Spectrum of Sodium Azide Single Crystals 2.png.
+

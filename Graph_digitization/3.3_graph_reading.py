@@ -719,6 +719,53 @@ def refine_steep_strokes(series_y: np.ndarray, series_iv: np.ndarray):
             i = j + 1
 
 
+def resolve_effective_num_series(gray_image: np.ndarray, requested: int, marker_cols=None):
+    """Return a series count the tracker can actually seed on, near ``requested``.
+
+    Seeding needs at least one column with exactly ``num_series`` separable runs
+    (see find_seed_stretch). When the requested count has no such column the old
+    code raised and the graph collapsed; instead, search a small neighbourhood
+    (+/-1 then +/-2) and pick the nearest count that yields a seedable stretch.
+    The requested count is preferred whenever it is feasible, so this only acts
+    as a safety net for an off-by-one metadata count and never second-guesses a
+    count that already works.
+    """
+    _, _, line_mask = extract_dark_pixels(gray_image)
+    line_mask = remove_structural_lines(line_mask)
+    runs_per_column = extract_column_runs(line_mask)
+    width = gray_image.shape[1]
+
+    if marker_cols is None:
+        marker_cols = np.zeros(width, dtype=bool)
+    else:
+        marker_cols = np.asarray(marker_cols, dtype=bool)
+        for x in range(min(width, marker_cols.size)):
+            if marker_cols[x]:
+                runs_per_column[x] = []
+
+    regions = segment_regions(width, marker_cols)
+
+    def seed_strength(k: int) -> int:
+        if k < 1:
+            return 0
+        total = 0
+        for lo, hi in regions:
+            found = find_seed_stretch(runs_per_column[lo : hi + 1], k)
+            if found is not None:
+                total += found[2] - found[1] + 1
+        if total == 0:
+            found = find_seed_stretch(runs_per_column, k)
+            total = (found[2] - found[1] + 1) if found is not None else 0
+        return total
+
+    if seed_strength(requested) > 0:
+        return requested
+    for k in (requested - 1, requested + 1, requested - 2, requested + 2):
+        if k >= 1 and seed_strength(k) > 0:
+            return k
+    return requested  # nothing seedable nearby; let cluster_series raise as before
+
+
 def cluster_series(gray_image: np.ndarray, num_series: int, marker_cols=None):
     xs, ys, line_mask = extract_dark_pixels(gray_image)
     if xs.size == 0:
@@ -977,8 +1024,17 @@ def process_graph_png(png_path: Path, json_path: Path, root_dir: Path, summary: 
         # Columns touched by the shift-line mask are no-data; pass them through so
         # the tracer neither matches nor emits fabricated points there.
         marker_cols = np.any(marker_mask > 0, axis=0) if marker_mask.size else None
-        clusters = cluster_series(cleaned, num_series, marker_cols=marker_cols)
-    except Exception:
+        # Safety net: if the requested count has no seedable column, fall back to
+        # the nearest count that does rather than collapsing the whole graph.
+        effective_series = resolve_effective_num_series(cleaned, num_series, marker_cols=marker_cols)
+        if effective_series != num_series:
+            print(
+                f"[ADJUST] {png_path.name}: num_series {num_series} -> {effective_series} "
+                f"(no column with exactly {num_series} separable runs)"
+            )
+        clusters = cluster_series(cleaned, effective_series, marker_cols=marker_cols)
+    except Exception as exc:
+        print(f"[FAIL] {png_path.name}: digitization error ({exc})")
         summary["failed"] += 1
         return
 
@@ -1005,7 +1061,16 @@ def process_graph_png(png_path: Path, json_path: Path, root_dir: Path, summary: 
     # vertical_markers_px = absolute image x; relative = crop_column / crop_width.
     vertical_markers_px = [x1 + cx for cx in marker_positions_crop]
     relative_markers = [round(cx / float(crop_width), 4) for cx in marker_positions_crop]
-    needs_manual = any(cluster["coverage_ratio"] < 0.70 for cluster in csv_entries)
+    coverages = [cluster["coverage_ratio"] for cluster in csv_entries]
+    min_coverage = min(coverages) if coverages else 0.0
+    empty_series = sum(1 for cluster in csv_entries if cluster["point_count"] == 0)
+    needs_manual = min_coverage < 0.70 or empty_series > 0
+    if needs_manual:
+        print(
+            f"[REVIEW] {png_path.name}: low quality "
+            f"(min coverage {min_coverage:.2f}, {empty_series}/{len(csv_entries)} empty series)"
+        )
+        summary["flagged_names"].append(png_path.name)
 
     metadata.update(
         {
@@ -1046,6 +1111,7 @@ def main():
         "digitized": 0,
         "flagged": 0,
         "failed": 0,
+        "flagged_names": [],
     }
 
     if args.single:
@@ -1066,6 +1132,8 @@ def main():
     print(f"Digitized: {summary['digitized']}")
     print(f"Flagged for review: {summary['flagged']}")
     print(f"Failed: {summary['failed']}")
+    if summary["flagged_names"]:
+        print("Graphs needing manual review: " + ", ".join(summary["flagged_names"]))
 
 
 if __name__ == "__main__":

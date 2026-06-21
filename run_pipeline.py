@@ -2,9 +2,10 @@
 """Batch-run the full graph digitization pipeline end-to-end.
 
 Stages (in order): PDF->PNG, graph extraction, graph curation, cleanup,
-preprocessing, size measurement, axis/metadata extraction, vertical marker
-detection, digitization, vertical marker series extraction, true-axis
-scaling, and an optional overlay verification pass.
+preprocessing, size measurement, OpenCV plot-bounds detection + axis-call crop
+(autonomous mode only), axis/metadata extraction, vertical marker detection,
+digitization, vertical marker series extraction, true-axis scaling, and an
+optional overlay verification pass.
 
 Default mode is fully autonomous (AI-driven curation + axis extraction via
 2.1.1_ai_png_mngmt.py and 3.1_ai_bound_axis_call.py). Pass --human to use the
@@ -233,12 +234,25 @@ def main():
 
         if args.human:
             print(
+                "\nSkipping stage 3.0.5 (OpenCV geometry): human-entered plot bounds "
+                "are authoritative."
+            )
+            print(
                 "\nStage 3.1 is interactive: a mode prompt will appear in the terminal. "
                 "Select mode 2 (Full) so axis_x/y_origin/final are captured — mode 1 "
                 "(Minimal) will cause stage 3.4 (true-axis scaling) to skip every series."
             )
             metadata_cmd = [sys.executable, str(GRAPH_DIG / "3.1ALT_human_metadata_input.py"), *root_arg]
         else:
+            # OpenCV detects plot_bounds and writes the axis-call crop before the
+            # vision model runs, so the model reads axes off the cropped plot while
+            # the pixel coordinates come from OpenCV.
+            run_stage(
+                "3.0.5 OpenCV plot-bounds detection",
+                [sys.executable, str(GRAPH_DIG / "3.0.5_cv_geometry.py"), *root_arg],
+                log_dir / "03_0_5_cv_geometry.log",
+                args.continue_on_error,
+            )
             metadata_cmd = [sys.executable, str(GRAPH_DIG / "3.1_ai_bound_axis_call.py"), *root_arg]
         run_stage("3.1 Axis/metadata extraction", metadata_cmd, log_dir / "03_1_metadata.log", args.continue_on_error)
 
