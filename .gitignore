@@ -8,3 +8,4 @@ Graph_check.py
 Graph_digi_compare/runs/
 __pycache__/
 .pytest_cache/
+.claude/settings.local.json
